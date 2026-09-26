@@ -27,6 +27,8 @@ class Project extends Model
 
     public const STATUS_UNQUALIFIED = 'unqualified';
 
+    public const STATUS_NOT_QUALIFIED = self::STATUS_UNQUALIFIED;
+
     public const STATUS_FINALISED = 'finalised';
 
     public const STATUS_JUDGING = 'judging';
@@ -107,6 +109,11 @@ class Project extends Model
     }
 
     public function versions(): HasMany
+    {
+        return $this->hasMany(CharterVersion::class)->orderBy('version_no', 'desc');
+    }
+
+    public function charterVersions(): HasMany
     {
         return $this->hasMany(CharterVersion::class)->orderBy('version_no', 'desc');
     }

@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\CharterVersion;
 use App\Models\Employee;
 use App\Models\Event;
+use App\Models\Feedback;
 use App\Models\Notification;
 use App\Models\Project;
 use App\Models\ProjectFile;
@@ -360,11 +361,30 @@ class ParticipantProjectController extends Controller
             'versions.creator.employee',
             'teamMembers.employee',
             'files.uploader.employee',
+            'feedbacks' => fn ($q) => $q->where('status', Feedback::STATUS_SENT)
+                ->whereNull('parent_id')
+                ->with(['author.employee', 'replies.author.employee'])
+                ->latest('created_at'),
         ]);
 
         return Inertia::render('Participant/Projects/Show', [
             'project' => $project,
         ]);
+    }
+
+    /**
+     * Mark verifier feedback as read by participant (VER-05, PAR-08).
+     */
+    public function markFeedbackRead(Request $request, Feedback $feedback): JsonResponse
+    {
+        $project = $feedback->project;
+        $this->authorize('view', $project);
+
+        if (! $feedback->read_at) {
+            $feedback->update(['read_at' => now()]);
+        }
+
+        return response()->json(['success' => true]);
     }
 
     /**

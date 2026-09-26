@@ -9,6 +9,7 @@ use App\Http\Controllers\EventController;
 use App\Http\Controllers\ParticipantProjectController;
 use App\Http\Controllers\PhaseController;
 use App\Http\Controllers\ScoringParameterController;
+use App\Http\Controllers\VerifierController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -93,11 +94,18 @@ Route::middleware('auth')->group(function () {
         Route::post('/projects/{project}/charter', [ParticipantProjectController::class, 'updateCharter'])->name('projects.charter.update');
         Route::post('/projects/{project}/files', [ParticipantProjectController::class, 'uploadFile'])->name('projects.files.upload');
         Route::get('/projects/{project}/files/{file}/download', [ParticipantProjectController::class, 'downloadFile'])->name('projects.files.download');
+        Route::post('/feedback/{feedback}/read', [ParticipantProjectController::class, 'markFeedbackRead'])->name('feedback.read');
     });
 
-    // Verifier Area
+    // Verifier Area (Phase 4)
     Route::middleware(['must.change.password', 'role:verifier'])->prefix('verifier')->name('verifier.')->group(function () {
-        Route::get('/dashboard', [DashboardController::class, 'verifier'])->name('dashboard');
+        Route::get('/dashboard', [VerifierController::class, 'dashboard'])->name('dashboard');
+        Route::get('/projects/{project}', [VerifierController::class, 'show'])->name('projects.show');
+        Route::post('/projects/{project}/feedback', [VerifierController::class, 'storeFeedback'])->name('projects.feedback.store');
+        Route::delete('/projects/{project}/feedback/{feedback}', [VerifierController::class, 'destroyFeedback'])->name('projects.feedback.destroy');
+        Route::post('/projects/{project}/visits', [VerifierController::class, 'storeVisit'])->name('projects.visits.store');
+        Route::post('/projects/{project}/score', [VerifierController::class, 'saveScore'])->name('projects.score.save');
+        Route::get('/projects/{project}/files/{file}/download', [VerifierController::class, 'downloadFile'])->name('projects.files.download');
     });
 
     // Judge Area
