@@ -334,5 +334,8 @@ class DatabaseSeeder extends Seeder
             $roleIds = array_map(fn ($r) => $roles[$r]->id, $emp['roles']);
             $user->roles()->sync($roleIds);
         }
+
+        // 4. Seed Event Configurations (BMG 2026, Streams, Dimensions, Parameters, Phases)
+        $this->call(EventConfigurationSeeder::class);
     }
 }

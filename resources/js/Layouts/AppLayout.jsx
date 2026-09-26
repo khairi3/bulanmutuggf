@@ -60,9 +60,10 @@ export default function AppLayout({ title, header, children }) {
             case 'admin':
                 return [
                     { name: 'Dashboard Admin', href: '/admin/dashboard', icon: LayoutDashboard },
-                    { name: 'Master Karyawan', href: '/admin/dashboard', icon: Users, badge: 'Phase 2' },
-                    { name: 'Konfigurasi Event', href: '/admin/dashboard', icon: Settings, badge: 'Phase 2' },
-                    { name: 'Monitoring Project', href: '/admin/dashboard', icon: FileText, badge: 'Phase 2' },
+                    { name: 'Master Karyawan', href: '/admin/employees', icon: Users, badge: 'Aktif' },
+                    { name: 'Konfigurasi Event', href: '/admin/events', icon: Settings, badge: 'Aktif' },
+                    { name: 'Evaluator & Penugasan', href: '/admin/assignments', icon: UserCheck, badge: 'Aktif' },
+                    { name: 'Monitoring Project', href: '/admin/dashboard', icon: FileText, badge: 'Phase 3' },
                     { name: 'Audit Log', href: '/admin/dashboard', icon: Shield, badge: 'Aktif' },
                 ];
             case 'verifier':

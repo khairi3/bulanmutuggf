@@ -1,7 +1,13 @@
 <?php
 
+use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\EventController;
+use App\Http\Controllers\PhaseController;
+use App\Http\Controllers\ScoringParameterController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -25,6 +31,9 @@ Route::middleware('guest')->group(function () {
     Route::post('/forgot-password', [AuthController::class, 'sendResetInstructions'])->name('password.email');
 });
 
+// Public Autocomplete API (EMP-03, EMP-04)
+Route::get('/api/employees/search', [EmployeeController::class, 'search'])->name('api.employees.search');
+
 // Authenticated Routes
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
@@ -40,6 +49,37 @@ Route::middleware('auth')->group(function () {
     Route::middleware(['must.change.password', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'admin'])->name('dashboard');
         Route::post('/users/{user}/reset-password', [AuthController::class, 'adminResetPassword'])->name('users.reset-password');
+
+        // Employee Management & Import (Task 2.1)
+        Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
+        Route::post('/employees/preview-import', [EmployeeController::class, 'previewImport'])->name('employees.preview-import');
+        Route::post('/employees/commit-import', [EmployeeController::class, 'commitImport'])->name('employees.commit-import');
+        Route::post('/employees/{employee}/toggle-active', [EmployeeController::class, 'toggleActive'])->name('employees.toggle-active');
+
+        // Event & Stream Configurations (Task 2.4, 2.5, 2.6, 2.7, 2.8)
+        Route::get('/events', [EventController::class, 'index'])->name('events.index');
+        Route::post('/events', [EventController::class, 'store'])->name('events.store');
+        Route::put('/events/{event}', [EventController::class, 'update'])->name('events.update');
+        Route::post('/streams/{stream}/toggle', [EventController::class, 'toggleStream'])->name('streams.toggle');
+        Route::post('/streams/{stream}/rules', [EventController::class, 'updateStreamRules'])->name('streams.rules');
+
+        // Phases Schedule (Task 2.5)
+        Route::post('/streams/{stream}/phases', [PhaseController::class, 'update'])->name('phases.update');
+
+        // Categories & Options (Task 2.6)
+        Route::post('/streams/{stream}/dimensions', [CategoryController::class, 'storeDimension'])->name('categories.store-dimension');
+        Route::post('/dimensions/{dimension}/options', [CategoryController::class, 'storeOption'])->name('categories.store-option');
+        Route::put('/options/{option}', [CategoryController::class, 'updateOption'])->name('categories.update-option');
+        Route::delete('/options/{option}', [CategoryController::class, 'destroyOption'])->name('categories.destroy-option');
+
+        // Scoring Parameters (Task 2.7)
+        Route::post('/streams/{stream}/scoring-parameters', [ScoringParameterController::class, 'updateStageParameters'])->name('scoring-parameters.update');
+
+        // User Management & Assignments Matrix (Task 2.9)
+        Route::get('/assignments', [AssignmentController::class, 'index'])->name('assignments.index');
+        Route::post('/assignments', [AssignmentController::class, 'store'])->name('assignments.store');
+        Route::delete('/assignments/{assignment}', [AssignmentController::class, 'destroy'])->name('assignments.destroy');
+        Route::post('/users/{user}/toggle-role', [AssignmentController::class, 'toggleUserRole'])->name('users.toggle-role');
     });
 
     // Participant Area

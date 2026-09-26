@@ -6,29 +6,33 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Assignment extends Model
+class ScoringParameter extends Model
 {
     use HasFactory;
 
+    public const STAGE_VERIFICATION = 'verification';
+
+    public const STAGE_JUDGING = 'judging';
+
     protected $fillable = [
-        'user_id',
         'stream_id',
         'stage',
-        'category_option_id',
+        'name',
+        'rubric',
+        'weight',
+        'sort_order',
     ];
 
-    public function user(): BelongsTo
+    protected function casts(): array
     {
-        return $this->belongsTo(User::class);
+        return [
+            'weight' => 'float',
+            'sort_order' => 'integer',
+        ];
     }
 
     public function stream(): BelongsTo
     {
         return $this->belongsTo(Stream::class);
-    }
-
-    public function categoryOption(): BelongsTo
-    {
-        return $this->belongsTo(CategoryOption::class);
     }
 }
