@@ -22,6 +22,8 @@ import {
     ArrowLeft,
     Lock,
     ExternalLink,
+    MessageSquare,
+    CheckCheck,
 } from 'lucide-react';
 
 export default function ProjectShow({ project }) {
@@ -210,6 +212,21 @@ export default function ProjectShow({ project }) {
                     >
                         <History className="w-4 h-4" />
                         <span>Riwayat Versi ({project.versions?.length || 0})</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('feedback')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                            activeTab === 'feedback'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:bg-slate-100'
+                        }`}
+                    >
+                        <MessageSquare className="w-4 h-4" />
+                        <span>Catatan Verifikator ({project.feedbacks?.length || 0})</span>
+                        {project.feedbacks?.some(f => !f.read_at) && (
+                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                        )}
                     </button>
                 </div>
 
@@ -413,6 +430,76 @@ export default function ProjectShow({ project }) {
                                 </div>
                             ))}
                         </div>
+                    </Card>
+                )}
+
+                {/* TAB 5: CATATAN VERIFIKATOR (PAR-08, VER-05) */}
+                {activeTab === 'feedback' && (
+                    <Card
+                        title="Catatan & Masukan Verifikator Lapangan"
+                        subtitle="Tinjau catatan perbaikan yang diberikan oleh tim verifikator untuk penyempurnaan project Anda."
+                    >
+                        {project.feedbacks?.length > 0 ? (
+                            <div className="space-y-4">
+                                {project.feedbacks.map((fb) => (
+                                    <div
+                                        key={fb.id}
+                                        className={`p-4 rounded-xl border ${
+                                            !fb.read_at
+                                                ? 'border-rose-300 bg-rose-50/20'
+                                                : 'border-slate-200 bg-white'
+                                        } space-y-2.5 transition-all`}
+                                    >
+                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold text-xs text-slate-800">
+                                                    {fb.author?.employee?.full_name || 'Tim Verifikator'}
+                                                </span>
+                                                {fb.charter_section && (
+                                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                                        Bagian: {fb.charter_section}
+                                                    </span>
+                                                )}
+                                                {!fb.read_at && (
+                                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800">
+                                                        Baru / Belum Dibaca
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <span className="text-[11px] text-slate-400 font-mono">
+                                                {new Date(fb.created_at).toLocaleString('id-ID')}
+                                            </span>
+                                        </div>
+
+                                        <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                            {fb.body}
+                                        </p>
+
+                                        {!fb.read_at && (
+                                            <div className="pt-1 flex justify-end">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => router.post(`/participant/feedback/${fb.id}/read`, {}, { preserveScroll: true })}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+                                                >
+                                                    <CheckCheck className="w-3.5 h-3.5" />
+                                                    <span>Tandai Sudah Dibaca</span>
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="py-12 text-center text-slate-400 text-xs">
+                                <MessageSquare className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                                <p className="font-semibold text-slate-600">Belum Ada Catatan dari Verifikator</p>
+                                <p className="mt-1">
+                                    Catatan atau klarifikasi dari tim verifikator lapangan akan ditampilkan di sini.
+                                </p>
+                            </div>
+                        )}
                     </Card>
                 )}
             </div>
