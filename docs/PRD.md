@@ -221,8 +221,8 @@ Pengerjaan dibagi 9 phase berurutan; Phase 0 sampai 4 membentuk MVP yang harus l
 | **Phase 2** | Master data & konfigurasi event | P0 | Phase 1 | Registrasi dibuka | **Selesai** |
 | **Phase 3** | Module Peserta: registrasi & charter | P0 | Phase 2 | Registrasi dibuka | **Selesai** |
 | **Phase 4** | Module Verifikator: review, feedback, nilai | P0 | Phase 3 | Fase Verifikasi | **Selesai** |
-| **Phase 5** | Seleksi, Convention prep & Module Juri | P1 | Phase 4 | Convention Day | **Berikutnya (Next)** |
-| **Phase 6** | Rekap, notifikasi lanjutan & dashboard manajemen | P1 | Phase 5 | Pengumuman | Menunggu |
+| **Phase 5** | Seleksi, Convention prep & Module Juri | P1 | Phase 4 | Convention Day | **Selesai** |
+| **Phase 6** | Rekap, notifikasi lanjutan & dashboard manajemen | P1 | Phase 5 | Pengumuman | **Berikutnya (Next)** |
 | **Phase 7** | QA, UAT & deployment Hostinger | P0 | Tiap phase | Setiap rilis | Menunggu |
 | **Phase 8** | Backlog pasca-launch (P2) | P2 | Phase 6 | — | Backlog |
 
@@ -285,17 +285,17 @@ Pengerjaan dibagi 9 phase berurutan; Phase 0 sampai 4 membentuk MVP yang harus l
 - [x] 4.9 Transisi status otomatis Submitted ke Dalam Verifikasi.
 
 #### Phase 5 — Seleksi, Convention Prep & Module Juri
-- [ ] 5.1 Migrasi: `selection_decisions`.
-- [ ] 5.2 Halaman seleksi: ranking per kategori, checkbox Lolos, indikator kuota (VER-09).
-- [ ] 5.3 Admin publish seleksi + override dengan alasan (ADM-03); notifikasi Lolos/Tidak Lolos (NOT-05).
-- [ ] 5.4 Routing otomatis project Lolos ke dashboard juri sesuai assignment (VER-10).
-- [ ] 5.5 Menu Convention Day peserta: slot Final Presentation (PDF wajib) dan Final Video (PAR-10).
-- [ ] 5.6 Finalise Project: checklist, modal ketik kode, lock semua field; auto-finalise saat deadline (PAR-11).
-- [ ] 5.7 Dashboard juri per kategori + progress (JUR-01, JUR-02).
-- [ ] 5.8 Split screen: PDF viewer (pdf.js), tab Video, tab Charter; divider resizable 65:35; fullscreen; stack di tablet (JUR-03, JUR-04).
-- [ ] 5.9 Form nilai juri sticky + autosave + submit lock + tombol project berikutnya (JUR-05, JUR-06).
-- [ ] 5.10 Blind scoring dan filter konflik kepentingan (JUR-07, JUR-08).
-- [ ] 5.11 Uji split screen di laptop 1366 px dan tablet 10 inci.
+- [x] 5.1 Migrasi: `selection_decisions`.
+- [x] 5.2 Halaman seleksi: ranking per kategori, checkbox Lolos, indikator kuota (VER-09).
+- [x] 5.3 Admin publish seleksi + override dengan alasan (ADM-03); notifikasi Lolos/Tidak Lolos (NOT-05).
+- [x] 5.4 Routing otomatis project Lolos ke dashboard juri sesuai assignment (VER-10).
+- [x] 5.5 Menu Convention Day peserta: slot Final Presentation (PDF wajib) dan Final Video (PAR-10).
+- [x] 5.6 Finalise Project: checklist, modal ketik kode, lock semua field; auto-finalise saat deadline (PAR-11).
+- [x] 5.7 Dashboard juri per kategori + progress (JUR-01, JUR-02).
+- [x] 5.8 Split screen: PDF viewer (pdf.js), tab Video, tab Charter; divider resizable 65:35; fullscreen; stack di tablet (JUR-03, JUR-04).
+- [x] 5.9 Form nilai juri sticky + autosave + submit lock + tombol project berikutnya (JUR-05, JUR-06).
+- [x] 5.10 Blind scoring dan filter konflik kepentingan (JUR-07, JUR-08).
+- [x] 5.11 Uji split screen di laptop 1366 px dan tablet 10 inci.
 
 #### Phase 6 — Rekap, Notifikasi Lanjutan & Dashboard Manajemen
 - [ ] 6.1 Service rekap nilai akhir + ranking + tie-breaker; tabel `final_results` (REP-01, CFG-08).
