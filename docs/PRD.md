@@ -220,8 +220,8 @@ Pengerjaan dibagi 9 phase berurutan; Phase 0 sampai 4 membentuk MVP yang harus l
 | **Phase 1** | Setup project, auth & RBAC | P0 | Phase 0 | Registrasi dibuka | **Selesai** |
 | **Phase 2** | Master data & konfigurasi event | P0 | Phase 1 | Registrasi dibuka | **Selesai** |
 | **Phase 3** | Module Peserta: registrasi & charter | P0 | Phase 2 | Registrasi dibuka | **Selesai** |
-| **Phase 4** | Module Verifikator: review, feedback, nilai | P0 | Phase 3 | Fase Verifikasi | **Berikutnya (Next)** |
-| **Phase 5** | Seleksi, Convention prep & Module Juri | P1 | Phase 4 | Convention Day | Menunggu |
+| **Phase 4** | Module Verifikator: review, feedback, nilai | P0 | Phase 3 | Fase Verifikasi | **Selesai** |
+| **Phase 5** | Seleksi, Convention prep & Module Juri | P1 | Phase 4 | Convention Day | **Berikutnya (Next)** |
 | **Phase 6** | Rekap, notifikasi lanjutan & dashboard manajemen | P1 | Phase 5 | Pengumuman | Menunggu |
 | **Phase 7** | QA, UAT & deployment Hostinger | P0 | Tiap phase | Setiap rilis | Menunggu |
 | **Phase 8** | Backlog pasca-launch (P2) | P2 | Phase 6 | — | Backlog |
@@ -273,16 +273,16 @@ Pengerjaan dibagi 9 phase berurutan; Phase 0 sampai 4 membentuk MVP yang harus l
 - [x] 3.10 Email konfirmasi submit berisi kode (NOT-01) + notifikasi in-app dasar.
 - [x] 3.11 Uji mobile responsif di viewport layar sentuh 4G.
 
-#### Phase 4 — Module Verifikator: Review, Feedback, Nilai (Akan Dikerjakan)
-- [ ] 4.1 Migrasi: `feedbacks`, `verification_visits`, `score_sheets`, `score_items`.
-- [ ] 4.2 Dashboard verifikator: kartu ringkasan + tabel dengan filter, search, sort, pagination (VER-01, VER-02).
-- [ ] 4.3 Halaman detail project: charter terbaru, riwayat versi, preview lampiran (VER-03).
-- [ ] 4.4 Feedback: tulis, simpan draft, kirim ke peserta; tab Feedback + badge belum dibaca di sisi peserta (VER-05, PAR-08, NOT-02).
-- [ ] 4.5 Log visit + upload foto dari HP (VER-04).
-- [ ] 4.6 Form penilaian dinamis dari `scoring_parameters`, slider + input angka, total tertimbang live (VER-06).
-- [ ] 4.7 Draft vs Submit Final, kunci nilai, ubah status ke Terverifikasi (VER-07).
-- [ ] 4.8 Service perhitungan skor (rata-rata multi verifikator) + unit test (VER-08).
-- [ ] 4.9 Transisi status otomatis Submitted ke Dalam Verifikasi.
+#### Phase 4 — Module Verifikator: Review, Feedback, Nilai (Selesai)
+- [x] 4.1 Migrasi: `feedbacks`, `verification_visits`, `score_sheets`, `score_items`.
+- [x] 4.2 Dashboard verifikator: kartu ringkasan + tabel dengan filter, search, sort, pagination (VER-01, VER-02).
+- [x] 4.3 Halaman detail project: charter terbaru, riwayat versi, preview lampiran (VER-03).
+- [x] 4.4 Feedback: tulis, simpan draft, kirim ke peserta; tab Feedback + badge belum dibaca di sisi peserta (VER-05, PAR-08, NOT-02).
+- [x] 4.5 Log visit + upload foto dari HP (VER-04).
+- [x] 4.6 Form penilaian dinamis dari `scoring_parameters`, slider + input angka, total tertimbang live (VER-06).
+- [x] 4.7 Draft vs Submit Final, kunci nilai, ubah status ke Terverifikasi (VER-07).
+- [x] 4.8 Service perhitungan skor (rata-rata multi verifikator) + unit test (VER-08).
+- [x] 4.9 Transisi status otomatis Submitted ke Dalam Verifikasi.
 
 #### Phase 5 — Seleksi, Convention Prep & Module Juri
 - [ ] 5.1 Migrasi: `selection_decisions`.
