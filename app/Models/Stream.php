@@ -26,6 +26,9 @@ class Stream extends Model
         'team_max',
         'max_projects_per_employee',
         'is_active',
+        'selection_published_at',
+        'results_published_at',
+        'auto_finalise',
     ];
 
     protected function casts(): array
@@ -35,7 +38,63 @@ class Stream extends Model
             'team_max' => 'integer',
             'max_projects_per_employee' => 'integer',
             'is_active' => 'boolean',
+            'selection_published_at' => 'datetime',
+            'results_published_at' => 'datetime',
+            'auto_finalise' => 'boolean',
         ];
+    }
+
+    public function projects(): HasMany
+    {
+        return $this->hasMany(Project::class);
+    }
+
+    public function stageParameters(string $stage)
+    {
+        return $this->scoringParameters()->where('stage', $stage)->get();
+    }
+
+    /**
+     * Dimensi dasar ranking & kuota Convention Day: dimensi pertama yang opsinya
+     * memiliki kuota (CFG-07), atau dimensi pertama bila tidak ada kuota.
+     */
+    public function rankingDimension(): ?CategoryDimension
+    {
+        $dimensions = $this->relationLoaded('categoryDimensions')
+            ? $this->categoryDimensions
+            : $this->categoryDimensions()->with('options')->get();
+
+        return $dimensions->first(fn ($dim) => $dim->options->whereNotNull('quota')->isNotEmpty())
+            ?? $dimensions->first();
+    }
+
+    /**
+     * Dimensi pengelompokan dashboard juri (JUR-01): kategori Improvement untuk CIC.
+     */
+    public function groupingDimension(): ?CategoryDimension
+    {
+        $dimensions = $this->relationLoaded('categoryDimensions')
+            ? $this->categoryDimensions
+            : $this->categoryDimensions()->with('options')->get();
+
+        return $dimensions->firstWhere('code', 'IMPROVEMENT') ?? $this->rankingDimension();
+    }
+
+    public function phase(string $phaseType): ?Phase
+    {
+        $phases = $this->relationLoaded('phases') ? $this->phases : $this->phases()->get();
+
+        return $phases->firstWhere('phase_type', $phaseType);
+    }
+
+    public function isSelectionPublished(): bool
+    {
+        return $this->selection_published_at !== null;
+    }
+
+    public function isResultsPublished(): bool
+    {
+        return $this->results_published_at !== null;
     }
 
     public function event(): BelongsTo

@@ -6,6 +6,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\ParticipantProjectController;
 use App\Http\Controllers\PhaseController;
 use App\Http\Controllers\ScoringParameterController;
 use Illuminate\Support\Facades\Auth;
@@ -82,9 +83,16 @@ Route::middleware('auth')->group(function () {
         Route::post('/users/{user}/toggle-role', [AssignmentController::class, 'toggleUserRole'])->name('users.toggle-role');
     });
 
-    // Participant Area
+    // Participant Area (Phase 3)
     Route::middleware(['must.change.password', 'role:participant'])->prefix('participant')->name('participant.')->group(function () {
-        Route::get('/dashboard', [DashboardController::class, 'participant'])->name('dashboard');
+        Route::get('/dashboard', [ParticipantProjectController::class, 'index'])->name('dashboard');
+        Route::get('/projects/create', [ParticipantProjectController::class, 'create'])->name('projects.create');
+        Route::post('/projects/draft', [ParticipantProjectController::class, 'storeDraft'])->name('projects.draft');
+        Route::post('/projects/submit', [ParticipantProjectController::class, 'submit'])->name('projects.submit');
+        Route::get('/projects/{project}', [ParticipantProjectController::class, 'show'])->name('projects.show');
+        Route::post('/projects/{project}/charter', [ParticipantProjectController::class, 'updateCharter'])->name('projects.charter.update');
+        Route::post('/projects/{project}/files', [ParticipantProjectController::class, 'uploadFile'])->name('projects.files.upload');
+        Route::get('/projects/{project}/files/{file}/download', [ParticipantProjectController::class, 'downloadFile'])->name('projects.files.download');
     });
 
     // Verifier Area
