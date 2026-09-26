@@ -2,8 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Models\Assignment;
 use App\Models\Employee;
 use App\Models\Role;
+use App\Models\Stream;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -337,5 +339,39 @@ class DatabaseSeeder extends Seeder
 
         // 4. Seed Event Configurations (BMG 2026, Streams, Dimensions, Parameters, Phases)
         $this->call(EventConfigurationSeeder::class);
+
+        // 5. Seed Default Assignments for Demo / Local dev (ADM-01)
+        if (! app()->runningUnitTests()) {
+            $cic = Stream::where('code', Stream::CODE_CIC)->first();
+            $k3 = Stream::where('code', Stream::CODE_K3)->first();
+            $energy = Stream::where('code', Stream::CODE_ENERGY)->first();
+
+            // Siti Rahmawati (EMP1002) -> Verifier CIC
+            $siti = Employee::where('employee_index', 'EMP1002')->first()?->user;
+            if ($siti && $cic) {
+                Assignment::firstOrCreate(['user_id' => $siti->id, 'stream_id' => $cic->id, 'stage' => 'verification']);
+            }
+
+            // Ahmad Fauzi (EMP1003) -> Verifier K3 & Energy
+            $ahmad = Employee::where('employee_index', 'EMP1003')->first()?->user;
+            if ($ahmad && $k3) {
+                Assignment::firstOrCreate(['user_id' => $ahmad->id, 'stream_id' => $k3->id, 'stage' => 'verification']);
+            }
+            if ($ahmad && $energy) {
+                Assignment::firstOrCreate(['user_id' => $ahmad->id, 'stream_id' => $energy->id, 'stage' => 'verification']);
+            }
+
+            // Hendra Gunawan (EMP1004) -> Judge CIC
+            $hendra = Employee::where('employee_index', 'EMP1004')->first()?->user;
+            if ($hendra && $cic) {
+                Assignment::firstOrCreate(['user_id' => $hendra->id, 'stream_id' => $cic->id, 'stage' => 'judging']);
+            }
+
+            // Mariana Kusuma (EMP1005) -> Judge K3
+            $mariana = Employee::where('employee_index', 'EMP1005')->first()?->user;
+            if ($mariana && $k3) {
+                Assignment::firstOrCreate(['user_id' => $mariana->id, 'stream_id' => $k3->id, 'stage' => 'judging']);
+            }
+        }
     }
 }

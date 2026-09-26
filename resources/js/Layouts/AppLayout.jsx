@@ -17,6 +17,8 @@ import {
     MessageSquare,
     UserCheck,
     BarChart3,
+    Clock,
+    FileCheck,
 } from 'lucide-react';
 import clsx from 'clsx';
 import Toast from '../Components/Toast';
@@ -69,9 +71,10 @@ export default function AppLayout({ title, header, children }) {
             case 'verifier':
                 return [
                     { name: 'Dashboard Verifikasi', href: '/verifier/dashboard', icon: LayoutDashboard },
-                    { name: 'Project Di-assign', href: '/verifier/dashboard', icon: CheckSquare, badge: 'Phase 4' },
-                    { name: 'Feedback & Visit', href: '/verifier/dashboard', icon: MessageSquare, badge: 'Phase 4' },
-                    { name: 'Halaman Seleksi', href: '/verifier/dashboard', icon: Award, badge: 'Phase 4' },
+                    { name: 'Semua Project Di-assign', href: '/verifier/dashboard', icon: CheckSquare },
+                    { name: 'Perlu Verifikasi (Baru)', href: '/verifier/dashboard?status=submitted', icon: Clock, badge: 'Baru' },
+                    { name: 'Sedang Diverifikasi', href: '/verifier/dashboard?status=in_verification', icon: FileCheck },
+                    { name: 'Sudah Terverifikasi', href: '/verifier/dashboard?status=verified', icon: Award },
                 ];
             case 'judge':
                 return [
@@ -86,8 +89,7 @@ export default function AppLayout({ title, header, children }) {
             default: // participant
                 return [
                     { name: 'Beranda Saya', href: '/participant/dashboard', icon: LayoutDashboard },
-                    { name: 'Registrasi Tim & Charter', href: '/participant/dashboard', icon: FileText, badge: 'Phase 3' },
-                    { name: 'Feedback Tim', href: '/participant/dashboard', icon: MessageSquare, badge: 'Phase 3' },
+                    { name: 'Registrasi Project Baru', href: '/participant/projects/create', icon: FileText, badge: 'Daftar' },
                 ];
         }
     };
@@ -278,27 +280,74 @@ export default function AppLayout({ title, header, children }) {
             {/* MOBILE BOTTOM NAVIGATION (PRD 5.6) */}
             <div className="lg:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200 z-40 py-1.5 px-3">
                 <div className="flex items-center justify-around">
-                    <Link
-                        href="/"
-                        className="flex flex-col items-center py-1 px-3 text-slate-600 hover:text-emerald-600 active:text-emerald-700"
-                    >
-                        <LayoutDashboard className="w-5 h-5 mb-0.5" />
-                        <span className="text-[11px] font-medium">Beranda</span>
-                    </Link>
-                    <Link
-                        href="/participant/dashboard"
-                        className="flex flex-col items-center py-1 px-3 text-slate-600 hover:text-emerald-600 active:text-emerald-700"
-                    >
-                        <FileText className="w-5 h-5 mb-0.5" />
-                        <span className="text-[11px] font-medium">Project</span>
-                    </Link>
-                    <Link
-                        href="/participant/dashboard"
-                        className="flex flex-col items-center py-1 px-3 text-slate-600 hover:text-emerald-600 active:text-emerald-700"
-                    >
-                        <MessageSquare className="w-5 h-5 mb-0.5" />
-                        <span className="text-[11px] font-medium">Feedback</span>
-                    </Link>
+                    {activeRole === 'verifier' && (
+                        <>
+                            <Link
+                                href="/verifier/dashboard"
+                                className="flex flex-col items-center py-1 px-3 text-slate-600 hover:text-emerald-600 active:text-emerald-700"
+                            >
+                                <LayoutDashboard className="w-5 h-5 mb-0.5" />
+                                <span className="text-[11px] font-medium">Dashboard</span>
+                            </Link>
+                            <Link
+                                href="/verifier/dashboard?status=submitted"
+                                className="flex flex-col items-center py-1 px-3 text-slate-600 hover:text-emerald-600 active:text-emerald-700"
+                            >
+                                <Clock className="w-5 h-5 mb-0.5" />
+                                <span className="text-[11px] font-medium">Perlu Cek</span>
+                            </Link>
+                            <Link
+                                href="/verifier/dashboard?status=verified"
+                                className="flex flex-col items-center py-1 px-3 text-slate-600 hover:text-emerald-600 active:text-emerald-700"
+                            >
+                                <Award className="w-5 h-5 mb-0.5" />
+                                <span className="text-[11px] font-medium">Selesai</span>
+                            </Link>
+                        </>
+                    )}
+                    {activeRole === 'admin' && (
+                        <>
+                            <Link
+                                href="/admin/dashboard"
+                                className="flex flex-col items-center py-1 px-3 text-slate-600 hover:text-emerald-600 active:text-emerald-700"
+                            >
+                                <LayoutDashboard className="w-5 h-5 mb-0.5" />
+                                <span className="text-[11px] font-medium">Dashboard</span>
+                            </Link>
+                            <Link
+                                href="/admin/employees"
+                                className="flex flex-col items-center py-1 px-3 text-slate-600 hover:text-emerald-600 active:text-emerald-700"
+                            >
+                                <Users className="w-5 h-5 mb-0.5" />
+                                <span className="text-[11px] font-medium">Karyawan</span>
+                            </Link>
+                            <Link
+                                href="/admin/assignments"
+                                className="flex flex-col items-center py-1 px-3 text-slate-600 hover:text-emerald-600 active:text-emerald-700"
+                            >
+                                <UserCheck className="w-5 h-5 mb-0.5" />
+                                <span className="text-[11px] font-medium">Penugasan</span>
+                            </Link>
+                        </>
+                    )}
+                    {activeRole !== 'verifier' && activeRole !== 'admin' && (
+                        <>
+                            <Link
+                                href="/participant/dashboard"
+                                className="flex flex-col items-center py-1 px-3 text-slate-600 hover:text-emerald-600 active:text-emerald-700"
+                            >
+                                <LayoutDashboard className="w-5 h-5 mb-0.5" />
+                                <span className="text-[11px] font-medium">Beranda</span>
+                            </Link>
+                            <Link
+                                href="/participant/projects/create"
+                                className="flex flex-col items-center py-1 px-3 text-slate-600 hover:text-emerald-600 active:text-emerald-700"
+                            >
+                                <FileText className="w-5 h-5 mb-0.5" />
+                                <span className="text-[11px] font-medium">Daftar</span>
+                            </Link>
+                        </>
+                    )}
                     <button
                         onClick={() => setIsMobileMenuOpen(true)}
                         className="flex flex-col items-center py-1 px-3 text-slate-600 hover:text-emerald-600 active:text-emerald-700"
