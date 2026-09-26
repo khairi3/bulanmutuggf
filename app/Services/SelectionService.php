@@ -29,7 +29,7 @@ class SelectionService
      */
     public function ranking(Stream $stream, ?Collection $projectIds = null): Collection
     {
-        $stream->loadMissing('categoryDimensions.options');
+        $stream->load('categoryDimensions.options');
         $dimension = $stream->rankingDimension();
 
         $query = $stream->projects()

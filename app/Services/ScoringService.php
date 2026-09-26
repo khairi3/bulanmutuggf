@@ -60,6 +60,18 @@ class ScoringService
                 ]);
             }
 
+            $normalizedItems = [];
+            foreach ($items as $k => $item) {
+                if (is_array($item)) {
+                    $paramId = $item['parameter_id'] ?? $item['scoring_parameter_id'] ?? $k;
+                    $normalizedItems[$paramId] = [
+                        'score' => $item['score'] ?? null,
+                        'note' => $item['note'] ?? $item['notes'] ?? null,
+                    ];
+                }
+            }
+            $items = $normalizedItems;
+
             $errors = [];
             foreach ($parameters as $parameter) {
                 $raw = $items[$parameter->id]['score'] ?? null;

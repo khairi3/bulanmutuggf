@@ -24,14 +24,27 @@ import {
     ExternalLink,
     MessageSquare,
     CheckCheck,
+    Award,
+    Sparkles,
+    AlertTriangle,
+    Send,
+    Video,
 } from 'lucide-react';
 
 export default function ProjectShow({ project }) {
-    const [activeTab, setActiveTab] = useState('charter'); // 'charter', 'team', 'files', 'versions'
+    const [activeTab, setActiveTab] = useState('charter'); // 'charter', 'team', 'files', 'versions', 'feedback', 'convention'
     const [isEditCharterModalOpen, setIsEditCharterModalOpen] = useState(false);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
+    // Finalise Project State (PAR-11)
+    const [isFinaliseModalOpen, setIsFinaliseModalOpen] = useState(false);
+    const [finaliseCodeInput, setFinaliseCodeInput] = useState('');
+    const [finaliseError, setFinaliseError] = useState('');
+    const [isFinalising, setIsFinalising] = useState(false);
+
     const currentVersion = project.current_version || project.versions?.[0];
+    const presentationFile = project.files?.find(f => f.file_category === 'final_presentation');
+    const videoFile = project.files?.find(f => f.file_category === 'final_video');
 
     // Form Update Charter (v1 -> v2 versioning PAR-06)
     const updateForm = useForm({
@@ -57,6 +70,11 @@ export default function ProjectShow({ project }) {
         file_category: 'supporting',
     });
 
+    const openUploadModal = (category = 'supporting') => {
+        uploadForm.setData('file_category', category);
+        setIsUploadModalOpen(true);
+    };
+
     const handleUpdateCharter = (e) => {
         e.preventDefault();
         updateForm.post(`/participant/projects/${project.id}/charter`, {
@@ -74,6 +92,33 @@ export default function ProjectShow({ project }) {
                 setIsUploadModalOpen(false);
                 uploadForm.reset();
             },
+        });
+    };
+
+    const handleFinalise = (e) => {
+        e.preventDefault();
+        if (finaliseCodeInput.trim() !== project.registration_code.trim()) {
+            setFinaliseError(`Kode konfirmasi salah. Harap ketik persis sama: ${project.registration_code}`);
+            return;
+        }
+        if (!presentationFile) {
+            setFinaliseError('Wajib mengunggah Presentasi Final (PDF) sebelum Finalise.');
+            return;
+        }
+        setIsFinalising(true);
+        setFinaliseError('');
+        router.post(`/participant/projects/${project.id}/finalise`, {
+            confirmation_code: finaliseCodeInput,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setIsFinaliseModalOpen(false);
+                setFinaliseCodeInput('');
+            },
+            onError: (errors) => {
+                setFinaliseError(errors.status || errors.confirmation_code || errors.files || 'Gagal melakukan finalise.');
+            },
+            onFinish: () => setIsFinalising(false),
         });
     };
 
@@ -228,7 +273,50 @@ export default function ProjectShow({ project }) {
                             <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
                         )}
                     </button>
+
+                    {/* CONVENTION DAY TAB (PAR-11) */}
+                    {(['qualified', 'finalised', 'judging', 'announced'].includes(project.status)) && (
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('convention')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                                activeTab === 'convention'
+                                    ? 'bg-purple-600 text-white shadow-xs'
+                                    : 'text-purple-700 bg-purple-50 hover:bg-purple-100'
+                            }`}
+                        >
+                            <Award className="w-4 h-4" />
+                            <span>Convention Day & Finalisasi</span>
+                            {project.status === 'qualified' && (
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                            )}
+                        </button>
+                    )}
                 </div>
+
+                {/* QUALIFIED NOTIFICATION BANNER */}
+                {project.status === 'qualified' && (
+                    <div className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-green-600 text-white rounded-2xl p-5 shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center flex-shrink-0">
+                                <Award className="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                                <h3 className="font-black text-base">Selamat! Project Anda Lolos ke Convention Day!</h3>
+                                <p className="text-xs text-emerald-100 mt-0.5">
+                                    Segera lengkapi materi Presentasi Final (PDF) dan Video Inovasi, lalu lakukan Finalise Project sebelum batas waktu.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('convention')}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-emerald-800 font-bold text-xs shadow-md hover:bg-emerald-50 transition self-start sm:self-auto"
+                        >
+                            Materi Convention & Finalisasi →
+                        </button>
+                    </div>
+                )}
 
                 {/* TAB 1: CHARTER DETAIL */}
                 {activeTab === 'charter' && (
@@ -502,6 +590,178 @@ export default function ProjectShow({ project }) {
                         )}
                     </Card>
                 )}
+
+                {/* TAB 6: CONVENTION DAY & FINALISATION (PAR-11) */}
+                {activeTab === 'convention' && (
+                    <div className="space-y-6">
+                        {/* Status Card */}
+                        <div className={`p-6 rounded-3xl border shadow-sm ${
+                            project.status === 'finalised' || project.is_locked
+                                ? 'bg-purple-50/70 border-purple-200'
+                                : 'bg-emerald-50/70 border-emerald-200'
+                        }`}>
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                <div className="flex items-start gap-4">
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+                                        project.status === 'finalised' || project.is_locked
+                                            ? 'bg-purple-600 text-white'
+                                            : 'bg-emerald-600 text-white'
+                                    }`}>
+                                        {project.status === 'finalised' || project.is_locked ? (
+                                            <Lock className="w-6 h-6" />
+                                        ) : (
+                                            <Award className="w-6 h-6" />
+                                        )}
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-black text-slate-900">
+                                            {project.status === 'finalised' || project.is_locked
+                                                ? 'Project Telah Difinalisasi & Terkunci'
+                                                : 'Persiapan Materi Convention Day'}
+                                        </h3>
+                                        <p className="text-xs text-slate-600 mt-1 max-w-xl">
+                                            {project.status === 'finalised' || project.is_locked
+                                                ? `Project ini telah dikunci pada ${project.finalised_at ? new Date(project.finalised_at).toLocaleString('id-ID') : 'sebelumnya'}. Materi siap dinilai oleh Dewan Juri Convention Day.`
+                                                : 'Unggah file Presentasi Final (PDF) dan tautan Video Inovasi Anda. Setelah materi lengkap, kunci project Anda melalui tombol Finalise Project di bawah.'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {project.status === 'qualified' && !project.is_locked && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsFinaliseModalOpen(true)}
+                                        disabled={!presentationFile}
+                                        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black shadow-lg shadow-purple-600/30 transition disabled:opacity-50 flex-shrink-0"
+                                    >
+                                        <Lock className="w-4 h-4" />
+                                        Finalise Project (Kunci)
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Checklist & Upload Materials Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* 1. Presentasi Final (PDF) */}
+                            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center">
+                                            <FileText className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-extrabold text-slate-900 text-sm">Presentasi Final (PDF)</h4>
+                                            <p className="text-[11px] text-slate-400">Wajib untuk Convention Day</p>
+                                        </div>
+                                    </div>
+                                    {presentationFile ? (
+                                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Siap
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                                            <AlertTriangle className="w-3.5 h-3.5 text-rose-600" /> Wajib
+                                        </span>
+                                    )}
+                                </div>
+
+                                {presentationFile ? (
+                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                                        <p className="font-bold text-xs text-slate-800 truncate">{presentationFile.original_name}</p>
+                                        <div className="flex items-center justify-between text-[11px] text-slate-500">
+                                            <span>{(presentationFile.size_bytes / (1024 * 1024)).toFixed(2)} MB</span>
+                                            <a
+                                                href={`/participant/projects/${project.id}/files/${presentationFile.id}/download`}
+                                                className="text-emerald-700 font-bold hover:underline inline-flex items-center gap-1"
+                                                target="_blank"
+                                                rel="noreferrer"
+                                            >
+                                                <Download className="w-3 h-3" /> Unduh
+                                            </a>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-slate-500 italic bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                                        Belum ada dokumen presentasi PDF yang diunggah.
+                                    </p>
+                                )}
+
+                                {!project.is_locked && (
+                                    <button
+                                        type="button"
+                                        onClick={() => openUploadModal('final_presentation')}
+                                        className="w-full py-2.5 rounded-xl border border-dashed border-blue-300 bg-blue-50/50 hover:bg-blue-50 text-blue-700 font-bold text-xs transition flex items-center justify-center gap-2"
+                                    >
+                                        <UploadCloud className="w-4 h-4" />
+                                        {presentationFile ? 'Ganti File Presentasi' : 'Unggah File Presentasi (PDF)'}
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* 2. Video Inovasi */}
+                            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center">
+                                            <Video className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-extrabold text-slate-900 text-sm">Video Inovasi</h4>
+                                            <p className="text-[11px] text-slate-400">Berkas MP4 atau Tautan YouTube/Drive</p>
+                                        </div>
+                                    </div>
+                                    {videoFile || project.video_url ? (
+                                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Tersedia
+                                        </span>
+                                    ) : (
+                                        <span className="text-[11px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                                            Opsional
+                                        </span>
+                                    )}
+                                </div>
+
+                                {videoFile ? (
+                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                                        <p className="font-bold text-xs text-slate-800 truncate">{videoFile.original_name}</p>
+                                        <div className="flex items-center justify-between text-[11px] text-slate-500">
+                                            <span>{(videoFile.size_bytes / (1024 * 1024)).toFixed(2)} MB</span>
+                                            <a
+                                                href={`/participant/projects/${project.id}/files/${videoFile.id}/download`}
+                                                className="text-emerald-700 font-bold hover:underline inline-flex items-center gap-1"
+                                                target="_blank"
+                                                rel="noreferrer"
+                                            >
+                                                <Download className="w-3 h-3" /> Unduh
+                                            </a>
+                                        </div>
+                                    </div>
+                                ) : project.video_url ? (
+                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
+                                        <span className="text-slate-400 text-[10px] uppercase font-bold">Tautan Eksternal</span>
+                                        <p className="font-bold text-purple-700 truncate mt-0.5">{project.video_url}</p>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-slate-500 italic bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                                        Belum ada video inovasi yang dilampirkan.
+                                    </p>
+                                )}
+
+                                {!project.is_locked && (
+                                    <button
+                                        type="button"
+                                        onClick={() => openUploadModal('final_video')}
+                                        className="w-full py-2.5 rounded-xl border border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-50 text-purple-700 font-bold text-xs transition flex items-center justify-center gap-2"
+                                    >
+                                        <UploadCloud className="w-4 h-4" />
+                                        {videoFile ? 'Ganti Video' : 'Unggah Video / Tautan'}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* MODAL UPDATE CHARTER (PAR-06) */}
@@ -590,7 +850,7 @@ export default function ProjectShow({ project }) {
             <Modal
                 isOpen={isUploadModalOpen}
                 onClose={() => setIsUploadModalOpen(false)}
-                title="Unggah Berkas / Tautan Video (PAR-04 & PAR-05)"
+                title="Unggah Berkas / Materi Project (PAR-04 & PAR-11)"
                 description="Lampirkan dokumen pendukung PPT, PDF, XLS, JPG atau masukkan link Google Drive / YouTube."
                 footer={
                     <>
@@ -609,8 +869,23 @@ export default function ProjectShow({ project }) {
             >
                 <form className="space-y-4">
                     <div>
+                        <label className="block text-sm font-semibold text-slate-800 mb-1">
+                            Kategori Berkas
+                        </label>
+                        <select
+                            value={uploadForm.data.file_category}
+                            onChange={(e) => uploadForm.setData('file_category', e.target.value)}
+                            className="w-full p-2.5 rounded-lg border border-slate-300 text-sm"
+                        >
+                            <option value="supporting">Dokumen Pendukung Umum</option>
+                            <option value="final_presentation">Materi Presentasi Final Convention (PDF)</option>
+                            <option value="final_video">Video Inovasi Final (MP4)</option>
+                        </select>
+                    </div>
+
+                    <div>
                         <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                            Pilih Berkas Komputer/HP (Maks. 20 MB)
+                            Pilih Berkas Komputer/HP (Maks. 100 MB)
                         </label>
                         <input
                             type="file"
@@ -639,6 +914,68 @@ export default function ProjectShow({ project }) {
                                 />
                             </div>
                         )}
+                    </div>
+                </form>
+            </Modal>
+
+            {/* MODAL FINALISE PROJECT (PAR-11) */}
+            <Modal
+                isOpen={isFinaliseModalOpen}
+                onClose={() => setIsFinaliseModalOpen(false)}
+                title="Konfirmasi Finalise Project (PAR-11)"
+                description="Tindakan ini akan mengunci seluruh data dan berkas project secara permanen untuk penilaian Convention Day."
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setIsFinaliseModalOpen(false)}>
+                            Batal
+                        </Button>
+                        <Button
+                            variant="primary"
+                            loading={isFinalising}
+                            disabled={finaliseCodeInput.trim() !== project.registration_code.trim()}
+                            onClick={handleFinalise}
+                        >
+                            Konfirmasi & Kunci Permanen
+                        </Button>
+                    </>
+                }
+            >
+                <form onSubmit={handleFinalise} className="space-y-4">
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-900 space-y-2">
+                        <div className="flex items-center gap-2 font-bold text-amber-800">
+                            <AlertTriangle className="w-4 h-4 text-amber-600" />
+                            <span>Perhatian Sebelum Mengunci:</span>
+                        </div>
+                        <ul className="list-disc pl-4 space-y-1">
+                            <li>Pastikan berkas presentasi PDF final sudah lengkap dan benar.</li>
+                            <li>Setelah difinalisasi, Anda <strong>tidak dapat lagi mengubah isi charter atau mengunggah revisi berkas</strong>.</li>
+                            <li>Project akan langsung masuk antrean penilaian Dewan Juri.</li>
+                        </ul>
+                    </div>
+
+                    {finaliseError && (
+                        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-700">
+                            {finaliseError}
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                            Ketikkan persis kode registrasi berikut untuk konfirmasi:
+                        </label>
+                        <div className="font-mono text-sm font-black bg-slate-100 p-2.5 rounded-xl border border-slate-200 text-slate-800 text-center select-all">
+                            {project.registration_code}
+                        </div>
+                        <input
+                            type="text"
+                            placeholder={`Ketik: ${project.registration_code}`}
+                            value={finaliseCodeInput}
+                            onChange={(e) => {
+                                setFinaliseCodeInput(e.target.value);
+                                setFinaliseError('');
+                            }}
+                            className="mt-2 w-full p-2.5 rounded-xl border border-slate-300 text-center font-mono text-sm font-bold focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        />
                     </div>
                 </form>
             </Modal>

@@ -517,4 +517,60 @@ class ParticipantProjectController extends Controller
 
         return Storage::download($file->storage_path, $file->original_name);
     }
+
+    /**
+     * Finalise Project: locks all project data before Convention Day (PAR-11).
+     */
+    public function finaliseProject(Request $request, Project $project): RedirectResponse
+    {
+        $this->authorize('update', $project);
+
+        if ($project->is_locked || $project->status === Project::STATUS_FINALISED) {
+            return back()->with('info', 'Project sudah di-finalise sebelumnya dan terkunci.');
+        }
+
+        if ($project->status !== Project::STATUS_QUALIFIED) {
+            throw ValidationException::withMessages([
+                'status' => 'Hanya project yang telah Lolos Seleksi Convention Day yang dapat di-Finalise.',
+            ]);
+        }
+
+        $request->validate([
+            'confirmation_code' => ['required', 'string'],
+        ], [
+            'confirmation_code.required' => 'Ketikkan kode registrasi project untuk mengonfirmasi penguncian.',
+        ]);
+
+        if (trim($request->input('confirmation_code')) !== trim($project->registration_code)) {
+            throw ValidationException::withMessages([
+                'confirmation_code' => "Kode konfirmasi salah. Harap ketik persis sama dengan kode registrasi: {$project->registration_code}",
+            ]);
+        }
+
+        // Checklist kelengkapan presentasi (PAR-11)
+        $hasPresentation = $project->files()->where('file_category', 'final_presentation')->exists();
+        if (! $hasPresentation) {
+            throw ValidationException::withMessages([
+                'files' => 'Anda wajib mengunggah file Presentasi Final (PDF) sebelum Finalise Project.',
+            ]);
+        }
+
+        DB::transaction(function () use ($project) {
+            $project->update([
+                'status' => Project::STATUS_FINALISED,
+                'finalised_at' => now(),
+                'is_locked' => true,
+            ]);
+
+            AuditLog::log(
+                action: 'FINALISE_PROJECT',
+                entityType: 'Project',
+                entityId: $project->id,
+                after: ['status' => Project::STATUS_FINALISED, 'finalised_at' => now()],
+                reason: "Peserta memfinalisasi materi Convention Day untuk {$project->registration_code}"
+            );
+        });
+
+        return back()->with('success', "Selamat! Project {$project->registration_code} berhasil di-Finalise dan data telah dikunci untuk penjurian Convention Day.");
+    }
 }
