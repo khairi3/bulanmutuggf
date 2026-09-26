@@ -6,9 +6,11 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\JudgeController;
 use App\Http\Controllers\ParticipantProjectController;
 use App\Http\Controllers\PhaseController;
 use App\Http\Controllers\ScoringParameterController;
+use App\Http\Controllers\SelectionController;
 use App\Http\Controllers\VerifierController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -82,9 +84,15 @@ Route::middleware('auth')->group(function () {
         Route::post('/assignments', [AssignmentController::class, 'store'])->name('assignments.store');
         Route::delete('/assignments/{assignment}', [AssignmentController::class, 'destroy'])->name('assignments.destroy');
         Route::post('/users/{user}/toggle-role', [AssignmentController::class, 'toggleUserRole'])->name('users.toggle-role');
+
+        // Selection & Convention Day Prep (Tasks 5.1, 5.2, 5.3)
+        Route::get('/selection', [SelectionController::class, 'index'])->name('selection.index');
+        Route::post('/selection/draft', [SelectionController::class, 'storeDraft'])->name('selection.draft');
+        Route::post('/streams/{stream}/selection/publish', [SelectionController::class, 'publish'])->name('selection.publish');
+        Route::post('/projects/{project}/selection/override', [SelectionController::class, 'override'])->name('selection.override');
     });
 
-    // Participant Area (Phase 3)
+    // Participant Area (Phase 3 & Phase 5)
     Route::middleware(['must.change.password', 'role:participant'])->prefix('participant')->name('participant.')->group(function () {
         Route::get('/dashboard', [ParticipantProjectController::class, 'index'])->name('dashboard');
         Route::get('/projects/create', [ParticipantProjectController::class, 'create'])->name('projects.create');
@@ -95,9 +103,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/projects/{project}/files', [ParticipantProjectController::class, 'uploadFile'])->name('projects.files.upload');
         Route::get('/projects/{project}/files/{file}/download', [ParticipantProjectController::class, 'downloadFile'])->name('projects.files.download');
         Route::post('/feedback/{feedback}/read', [ParticipantProjectController::class, 'markFeedbackRead'])->name('feedback.read');
+        Route::post('/projects/{project}/finalise', [ParticipantProjectController::class, 'finaliseProject'])->name('projects.finalise');
     });
 
-    // Verifier Area (Phase 4)
+    // Verifier Area (Phase 4 & Phase 5)
     Route::middleware(['must.change.password', 'role:verifier'])->prefix('verifier')->name('verifier.')->group(function () {
         Route::get('/dashboard', [VerifierController::class, 'dashboard'])->name('dashboard');
         Route::get('/projects/{project}', [VerifierController::class, 'show'])->name('projects.show');
@@ -106,11 +115,16 @@ Route::middleware('auth')->group(function () {
         Route::post('/projects/{project}/visits', [VerifierController::class, 'storeVisit'])->name('projects.visits.store');
         Route::post('/projects/{project}/score', [VerifierController::class, 'saveScore'])->name('projects.score.save');
         Route::get('/projects/{project}/files/{file}/download', [VerifierController::class, 'downloadFile'])->name('projects.files.download');
+        Route::get('/selection', [SelectionController::class, 'index'])->name('selection.index');
+        Route::post('/selection/draft', [SelectionController::class, 'storeDraft'])->name('selection.draft');
     });
 
-    // Judge Area
+    // Judge Area (Phase 5)
     Route::middleware(['must.change.password', 'role:judge'])->prefix('judge')->name('judge.')->group(function () {
-        Route::get('/dashboard', [DashboardController::class, 'judge'])->name('dashboard');
+        Route::get('/dashboard', [JudgeController::class, 'dashboard'])->name('dashboard');
+        Route::get('/projects/{project}', [JudgeController::class, 'show'])->name('projects.show');
+        Route::post('/projects/{project}/score', [JudgeController::class, 'saveScore'])->name('projects.score.save');
+        Route::get('/projects/{project}/files/{file}/download', [ParticipantProjectController::class, 'downloadFile'])->name('projects.files.download');
     });
 
     // Viewer Management Area
