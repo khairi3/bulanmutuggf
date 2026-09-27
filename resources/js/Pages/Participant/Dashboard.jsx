@@ -53,12 +53,10 @@ export default function ParticipantDashboard({ projects = [], activeEvent }) {
                         </p>
                     </div>
 
-                    <Link href="/participant/projects/create">
-                        <Button variant="primary">
-                            <FolderPlus className="w-4 h-4 mr-2" />
-                            <span>Daftarkan Tim Baru (Phase 3)</span>
-                        </Button>
-                    </Link>
+                    <Button href="/participant/projects/create" variant="primary">
+                        <FolderPlus className="w-4 h-4 mr-2" />
+                        <span>Daftarkan Tim Baru (Phase 3)</span>
+                    </Button>
                 </div>
             }
         >
@@ -86,12 +84,10 @@ export default function ParticipantDashboard({ projects = [], activeEvent }) {
                     title="Project Saya (PAR-07)"
                     subtitle="Daftar tim dan project inovasi yang Anda daftarkan atau ikuti"
                     action={
-                        <Link href="/participant/projects/create">
-                            <Button size="sm" variant="outline">
-                                <FolderPlus className="w-3.5 h-3.5 mr-1" />
-                                <span>Tambah Project</span>
-                            </Button>
-                        </Link>
+                        <Button href="/participant/projects/create" size="sm" variant="outline">
+                            <FolderPlus className="w-3.5 h-3.5 mr-1" />
+                            <span>Tambah Project</span>
+                        </Button>
                     }
                 >
                     {projects.length === 0 ? (
@@ -103,12 +99,10 @@ export default function ParticipantDashboard({ projects = [], activeEvent }) {
                             <p className="text-sm text-slate-500 max-w-sm mx-auto mt-1 mb-4">
                                 Anda belum memiliki project. Klik tombol di bawah untuk memulai pendaftaran tim melalui wizard 6 langkah.
                             </p>
-                            <Link href="/participant/projects/create">
-                                <Button variant="primary">
-                                    <FolderPlus className="w-4 h-4 mr-2" />
-                                    <span>Mulai Pendaftaran Tim</span>
-                                </Button>
-                            </Link>
+                            <Button href="/participant/projects/create" variant="primary">
+                                <FolderPlus className="w-4 h-4 mr-2" />
+                                <span>Mulai Pendaftaran Tim</span>
+                            </Button>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -154,25 +148,19 @@ export default function ParticipantDashboard({ projects = [], activeEvent }) {
                                             </span>
                                             {proj.status === 'draft' ? (
                                                 <div className="flex items-center gap-1.5">
-                                                    <Link href={`/participant/projects/${proj.id}`}>
-                                                        <Button size="sm" variant="outline">
-                                                            <span>Detail</span>
-                                                        </Button>
-                                                    </Link>
-                                                    <Link href={`/participant/projects/create?draft_id=${proj.id}`}>
-                                                        <Button size="sm" variant="primary">
-                                                            <span>Lanjutkan Draft</span>
-                                                            <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                                                        </Button>
-                                                    </Link>
-                                                </div>
-                                            ) : (
-                                                <Link href={`/participant/projects/${proj.id}`}>
-                                                    <Button size="sm" variant="outline">
-                                                        <span>Buka Project</span>
+                                                    <Button href={`/participant/projects/${proj.id}`} size="sm" variant="outline">
+                                                        <span>Detail</span>
+                                                    </Button>
+                                                    <Button href={`/participant/projects/create?draft_id=${proj.id}`} size="sm" variant="primary">
+                                                        <span>Lanjutkan Draft</span>
                                                         <ArrowRight className="w-3.5 h-3.5 ml-1" />
                                                     </Button>
-                                                </Link>
+                                                </div>
+                                            ) : (
+                                                <Button href={`/participant/projects/${proj.id}`} size="sm" variant="outline">
+                                                    <span>Buka Project</span>
+                                                    <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                                                </Button>
                                             )}
                                         </div>
                                     </div>

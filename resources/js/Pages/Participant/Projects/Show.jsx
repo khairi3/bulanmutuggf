@@ -183,12 +183,10 @@ export default function ProjectShow({ project }) {
                         {!project.is_locked && project.status !== 'finalised' && (
                             <div className="flex items-center gap-2">
                                 {project.status === 'draft' ? (
-                                    <Link href={`/participant/projects/create?draft_id=${project.id}`}>
-                                        <Button variant="primary">
-                                            <Edit3 className="w-4 h-4 mr-2" />
-                                            <span>Lanjutkan Pendaftaran Draft</span>
-                                        </Button>
-                                    </Link>
+                                    <Button href={`/participant/projects/create?draft_id=${project.id}`} variant="primary">
+                                        <Edit3 className="w-4 h-4 mr-2" />
+                                        <span>Lanjutkan Pendaftaran Draft</span>
+                                    </Button>
                                 ) : (
                                     <>
                                         <Button variant="secondary" onClick={() => setIsUploadModalOpen(true)}>
@@ -486,10 +484,10 @@ export default function ProjectShow({ project }) {
                                     <div key={file.id} className="py-3.5 flex items-center justify-between">
                                         <div className="flex items-center gap-3">
                                             <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs uppercase">
-                                                {file.original_name.split('.').pop() || 'FILE'}
+                                                {file.original_name ? (file.original_name.split('.').pop() || 'FILE') : 'LINK'}
                                             </div>
                                             <div>
-                                                <h5 className="font-bold text-sm text-slate-900">{file.original_name}</h5>
+                                                <h5 className="font-bold text-sm text-slate-900">{file.original_name || file.external_url || 'Berkas'}</h5>
                                                 <p className="text-xs text-slate-400">
                                                     Kategori: <strong className="text-slate-600">{file.file_category}</strong> · Ukuran: {file.formatted_size || '-'} · Diunggah oleh {file.uploader?.employee?.full_name || 'User'}
                                                 </p>
@@ -540,7 +538,7 @@ export default function ProjectShow({ project }) {
                                             )}
                                         </div>
                                         <span className="text-xs text-slate-400 font-mono">
-                                            {new Date(ver.created_at).toLocaleString('id-ID')}
+                                            {ver.created_at ? new Date(ver.created_at).toLocaleString('id-ID') : '-'}
                                         </span>
                                     </div>
 
@@ -651,7 +649,7 @@ export default function ProjectShow({ project }) {
                                     <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
                                         <p className="font-bold text-xs text-slate-800 truncate">{presentationFile.original_name}</p>
                                         <div className="flex items-center justify-between text-[11px] text-slate-500">
-                                            <span>{(presentationFile.size_bytes / (1024 * 1024)).toFixed(2)} MB</span>
+                                            <span>{presentationFile.size_bytes ? (presentationFile.size_bytes / (1024 * 1024)).toFixed(2) + ' MB' : '-'}</span>
                                             <a
                                                 href={`/participant/projects/${project.id}/files/${presentationFile.id}/download`}
                                                 className="text-emerald-700 font-bold hover:underline inline-flex items-center gap-1"
@@ -707,7 +705,7 @@ export default function ProjectShow({ project }) {
                                     <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
                                         <p className="font-bold text-xs text-slate-800 truncate">{videoFile.original_name}</p>
                                         <div className="flex items-center justify-between text-[11px] text-slate-500">
-                                            <span>{(videoFile.size_bytes / (1024 * 1024)).toFixed(2)} MB</span>
+                                            <span>{videoFile.size_bytes ? (videoFile.size_bytes / (1024 * 1024)).toFixed(2) + ' MB' : '-'}</span>
                                             <a
                                                 href={`/participant/projects/${project.id}/files/${videoFile.id}/download`}
                                                 className="text-emerald-700 font-bold hover:underline inline-flex items-center gap-1"

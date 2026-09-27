@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from '@inertiajs/react';
 import { Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -9,6 +10,7 @@ export default function Button({
     loading = false,
     disabled = false,
     className = '',
+    href,
     children,
     ...props
 }) {
@@ -28,11 +30,26 @@ export default function Button({
         lg: 'text-base px-5 py-2.5 min-h-[48px]',
     };
 
+    const classes = clsx(baseStyles, variants[variant], sizes[size], className);
+
+    if (href) {
+        return (
+            <Link
+                href={href}
+                className={classes}
+                {...props}
+            >
+                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin shrink-0" />}
+                {children}
+            </Link>
+        );
+    }
+
     return (
         <button
             type={type}
             disabled={disabled || loading}
-            className={clsx(baseStyles, variants[variant], sizes[size], className)}
+            className={classes}
             {...props}
         >
             {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin shrink-0" />}
