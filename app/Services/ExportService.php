@@ -6,182 +6,188 @@ use App\Models\Project;
 use App\Models\ScoreSheet;
 use App\Models\ScoringParameter;
 use App\Models\Stream;
-use Illuminate\Support\Collection;
-use OpenSpout\Common\Entity\Row;
-use OpenSpout\Common\Entity\Style\Style;
-use OpenSpout\Writer\XLSX\Writer;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Export Excel (ADM-06, VER-11): registrasi, nilai verifikasi per parameter,
- * nilai juri per juri per parameter, dan ranking akhir.
+ * Service Export Data Excel / CSV (ADM-06, VER-11).
  */
 class ExportService
 {
-    public function __construct(
-        protected ScoringService $scoring,
-        protected RecapService $recap,
-    ) {}
-
     /**
-     * Tulis workbook ke file sementara dan kembalikan path-nya.
-     *
-     * @param  Collection<int, Stream>  $streams
-     * @param  array<int, string>  $sheets  registrations|verification|judging|ranking
+     * Download CSV Stream dengan UTF-8 BOM agar kompatibel dengan Excel.
      */
-    public function workbook(Collection $streams, array $sheets, ?Collection $projectIds = null): string
+    public function export(string $type, ?int $streamId = null): StreamedResponse
     {
-        $path = tempnam(sys_get_temp_dir(), 'bmg_export_').'.xlsx';
+        $filename = match ($type) {
+            'registration' => 'rekap_registrasi_bmg_'.date('Ymd_His').'.csv',
+            'verification' => 'rekap_nilai_verifikasi_'.date('Ymd_His').'.csv',
+            'judging' => 'rekap_nilai_juri_'.date('Ymd_His').'.csv',
+            'final_ranking' => 'rekap_pemenang_leaderboard_'.date('Ymd_His').'.csv',
+            default => 'export_bmg_'.date('Ymd_His').'.csv',
+        };
 
-        $writer = new Writer;
-        $writer->openToFile($path);
-        $writer->setCreator('Sistem Web BMG - GGF Learning Center');
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0',
+        ];
 
-        $header = new Style(fontBold: true, fontColor: 'FFFFFF', backgroundColor: '0F5132');
-        $first = true;
+        return response()->stream(function () use ($type, $streamId) {
+            $handle = fopen('php://output', 'w');
+            // Write UTF-8 BOM for Microsoft Excel
+            fwrite($handle, "\xEF\xBB\xBF");
 
-        foreach ($sheets as $sheetKey) {
-            if (! $first) {
-                $writer->addNewSheetAndMakeItCurrent();
-            }
-            $first = false;
-
-            [$title, $rows] = match ($sheetKey) {
-                'registrations' => ['Registrasi', $this->registrationRows($streams, $projectIds)],
-                'verification' => ['Nilai Verifikasi', $this->scoreRows($streams, ScoringParameter::STAGE_VERIFICATION, $projectIds)],
-                'judging' => ['Nilai Juri', $this->scoreRows($streams, ScoringParameter::STAGE_JUDGING, $projectIds)],
-                'ranking' => ['Ranking Akhir', $this->rankingRows($streams)],
+            match ($type) {
+                'registration' => $this->writeRegistrationCsv($handle, $streamId),
+                'verification' => $this->writeEvaluationCsv($handle, ScoringParameter::STAGE_VERIFICATION, $streamId),
+                'judging' => $this->writeEvaluationCsv($handle, ScoringParameter::STAGE_JUDGING, $streamId),
+                'final_ranking' => $this->writeFinalRankingCsv($handle, $streamId),
+                default => null,
             };
 
-            $writer->getCurrentSheet()->setName($title);
-
-            foreach ($rows as $idx => $values) {
-                $writer->addRow($idx === 0
-                    ? Row::fromValuesWithStyle($values, $header)
-                    : Row::fromValues($values));
-            }
-        }
-
-        $writer->close();
-
-        return $path;
+            fclose($handle);
+        }, 200, $headers);
     }
 
-    protected function registrationRows(Collection $streams, ?Collection $projectIds): array
+    protected function writeRegistrationCsv($handle, ?int $streamId): void
     {
-        $rows = [[
-            'Stream', 'Kode Registrasi', 'Judul Project', 'Status', 'Kategori',
-            'Ketua (Index)', 'Ketua (Nama)', 'Unit Ketua', 'Jumlah Anggota', 'Anggota Tim',
-            'Versi Charter', 'Tanggal Submit', 'Tanggal Finalise',
-        ]];
+        fputcsv($handle, [
+            'Kode Registrasi',
+            'Judul Project',
+            'Stream',
+            'Kategori',
+            'Status',
+            'Nama Ketua Tim',
+            'Employee ID Ketua',
+            'Unit / Plant',
+            'Jumlah Anggota',
+            'Waktu Pendaftaran',
+            'Waktu Finalisasi',
+        ]);
 
-        $projects = $this->baseQuery($streams, $projectIds)
-            ->with(['stream', 'leader', 'categories.dimension', 'teamMembers.employee', 'currentVersion'])
-            ->where('status', '!=', Project::STATUS_DRAFT)
-            ->orderBy('stream_id')->orderBy('registration_code')
-            ->get();
+        $query = Project::with(['stream', 'categories.dimension', 'leader', 'teamMembers']);
+        if ($streamId) {
+            $query->where('stream_id', $streamId);
+        }
+
+        $query->chunk(100, function ($projects) use ($handle) {
+            foreach ($projects as $p) {
+                fputcsv($handle, [
+                    $p->registration_code,
+                    $p->title,
+                    $p->stream?->name,
+                    $p->categoryLabel(),
+                    $p->status_label,
+                    $p->leader?->full_name,
+                    $p->leader?->employee_index,
+                    $p->leader?->unit,
+                    $p->teamMembers->count(),
+                    $p->submitted_at ? $p->submitted_at->format('Y-m-d H:i:s') : '-',
+                    $p->finalised_at ? $p->finalised_at->format('Y-m-d H:i:s') : '-',
+                ]);
+            }
+        });
+    }
+
+    protected function writeEvaluationCsv($handle, string $stage, ?int $streamId): void
+    {
+        $roleName = $stage === ScoringParameter::STAGE_VERIFICATION ? 'Verifikator' : 'Juri';
+
+        fputcsv($handle, [
+            'Kode Registrasi',
+            'Judul Project',
+            'Stream',
+            'Nama '.$roleName,
+            'Status Lembar Nilai',
+            'Parameter Penilaian',
+            'Bobot Parameter (%)',
+            'Nilai (0-100)',
+            'Nilai Tertimbang',
+            'Catatan '.$roleName,
+            'Waktu Submit',
+        ]);
+
+        $query = ScoreSheet::with(['project.stream', 'scorer.employee', 'items.parameter'])
+            ->where('stage', $stage);
+
+        if ($streamId) {
+            $query->whereHas('project', fn ($q) => $q->where('stream_id', $streamId));
+        }
+
+        $query->chunk(100, function ($sheets) use ($handle) {
+            foreach ($sheets as $sheet) {
+                foreach ($sheet->items as $item) {
+                    $weight = $item->parameter?->weight ?? 0;
+                    $score = $item->score ?? 0;
+                    $weighted = round(($score * $weight) / 100, 2);
+
+                    fputcsv($handle, [
+                        $sheet->project?->registration_code,
+                        $sheet->project?->title,
+                        $sheet->project?->stream?->name,
+                        $sheet->scorer?->employee?->full_name ?? $sheet->scorer?->name,
+                        $sheet->status === 'submitted' ? 'Disubmit' : 'Draf',
+                        $item->parameter?->name,
+                        "{$weight}%",
+                        $score,
+                        $weighted,
+                        $item->note ?? '-',
+                        $sheet->submitted_at ? $sheet->submitted_at->format('Y-m-d H:i:s') : '-',
+                    ]);
+                }
+            }
+        });
+    }
+
+    protected function writeFinalRankingCsv($handle, ?int $streamId): void
+    {
+        fputcsv($handle, [
+            'Peringkat',
+            'Gelar Pemenang',
+            'Kode Registrasi',
+            'Judul Project',
+            'Stream',
+            'Kategori',
+            'Ketua Tim',
+            'Unit / Plant',
+            'Rata-rata Verifikasi',
+            'Bobot Verifikasi',
+            'Rata-rata Juri',
+            'Bobot Juri',
+            'Nilai Akhir BMG',
+            'Waktu Finalisasi',
+        ]);
+
+        $query = Project::with(['stream', 'categories.dimension', 'leader', 'finalResult.rankingOption'])
+            ->whereNotNull('status')
+            ->whereHas('finalResult');
+
+        if ($streamId) {
+            $query->where('stream_id', $streamId);
+        }
+
+        $projects = $query->get()->sortBy(fn ($p) => $p->finalResult?->rank_in_category ?? 999);
 
         foreach ($projects as $p) {
-            $rows[] = [
-                $p->stream->name,
+            $fr = $p->finalResult;
+            fputcsv($handle, [
+                $fr?->rank_in_category ?? '-',
+                $fr?->award_title ?? '-',
                 $p->registration_code,
                 $p->title,
-                $p->status_label,
-                $p->categoryLabel(),
-                $p->leader?->employee_index,
+                $p->stream?->name,
+                $fr?->rankingOption?->name ?? $p->categoryLabel(),
                 $p->leader?->full_name,
                 $p->leader?->unit,
-                $p->teamMembers->count(),
-                $p->teamMembers->map(fn ($tm) => "{$tm->employee?->full_name} ({$tm->employee?->employee_index})")->implode('; '),
-                'v'.($p->currentVersion?->version_no ?? 1),
-                $p->submitted_at?->format('Y-m-d H:i'),
-                $p->finalised_at?->format('Y-m-d H:i'),
-            ];
+                $fr?->verification_score !== null ? $fr->verification_score : '-',
+                "{$fr?->verification_weight}%",
+                $fr?->judging_score !== null ? $fr->judging_score : '-',
+                "{$fr?->judging_weight}%",
+                $fr?->final_score !== null ? $fr->final_score : '-',
+                $p->finalised_at ? $p->finalised_at->format('Y-m-d H:i:s') : '-',
+            ]);
         }
-
-        return $rows;
-    }
-
-    protected function scoreRows(Collection $streams, string $stage, ?Collection $projectIds): array
-    {
-        $parameterNames = ScoringParameter::whereIn('stream_id', $streams->pluck('id'))
-            ->where('stage', $stage)
-            ->orderBy('stream_id')->orderBy('sort_order')
-            ->get();
-
-        $rows = [array_merge(
-            ['Stream', 'Kode Registrasi', 'Judul Project', $stage === 'judging' ? 'Juri' : 'Verifikator', 'Status Nilai'],
-            $parameterNames->map(fn ($p) => "{$p->name} ({$p->weight}%)")->all(),
-            ['Total Tertimbang', 'Waktu Submit'],
-        )];
-
-        $sheets = ScoreSheet::with(['project.stream', 'scorer.employee', 'items'])
-            ->where('stage', $stage)
-            ->whereHas('project', function ($q) use ($streams, $projectIds) {
-                $q->whereIn('stream_id', $streams->pluck('id'));
-                if ($projectIds !== null) {
-                    $q->whereIn('id', $projectIds);
-                }
-            })
-            ->get()
-            ->sortBy(fn ($s) => [$s->project->stream_id, $s->project->registration_code]);
-
-        foreach ($sheets as $sheet) {
-            $scores = $sheet->items->pluck('score', 'parameter_id');
-
-            $rows[] = array_merge(
-                [
-                    $sheet->project->stream->name,
-                    $sheet->project->registration_code,
-                    $sheet->project->title,
-                    $sheet->scorer?->employee?->full_name,
-                    $sheet->isSubmitted() ? 'Submitted' : 'Draft',
-                ],
-                $parameterNames->map(fn ($p) => $p->stream_id === $sheet->project->stream_id ? ($scores[$p->id] ?? null) : null)->all(),
-                [$sheet->total_weighted, $sheet->submitted_at?->format('Y-m-d H:i')],
-            );
-        }
-
-        return $rows;
-    }
-
-    protected function rankingRows(Collection $streams): array
-    {
-        $rows = [[
-            'Stream', 'Kategori Ranking', 'Peringkat', 'Kode Registrasi', 'Judul Project', 'Ketua', 'Unit',
-            'Nilai Verifikasi', 'Nilai Juri (rata-rata)', 'Nilai Akhir', 'Status',
-        ]];
-
-        foreach ($streams as $stream) {
-            foreach ($this->recap->results($stream) as $group) {
-                foreach ($group['results'] as $r) {
-                    $rows[] = [
-                        $stream->name,
-                        $group['option']['name'] ?? '-',
-                        $r['rank'],
-                        $r['registration_code'],
-                        $r['title'],
-                        $r['leader']['full_name'] ?? null,
-                        $r['leader']['unit'] ?? null,
-                        $r['verification_score'],
-                        $r['judging_score'],
-                        $r['final_score'],
-                        $r['published_at'] ? 'Diumumkan' : 'Belum diumumkan',
-                    ];
-                }
-            }
-        }
-
-        return $rows;
-    }
-
-    protected function baseQuery(Collection $streams, ?Collection $projectIds)
-    {
-        $query = Project::whereIn('stream_id', $streams->pluck('id'));
-
-        if ($projectIds !== null) {
-            $query->whereIn('id', $projectIds);
-        }
-
-        return $query;
     }
 }

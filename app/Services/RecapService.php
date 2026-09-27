@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Models\AuditLog;
+use App\Models\CategoryOption;
 use App\Models\FinalResult;
 use App\Models\Project;
+use App\Models\ScoringParameter;
 use App\Models\Stream;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -12,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Rekap nilai akhir + ranking per kategori (REP-01, ADM-05, NOT-07).
+ * Service Rekap Nilai Akhir, Ranking, Tie-Breaker & Pengumuman Pemenang (REP-01, CFG-08, ADM-05, NOT-07).
  */
 class RecapService
 {
@@ -22,162 +24,279 @@ class RecapService
     ) {}
 
     /**
-     * Hitung ulang final_results seluruh project Convention stream ini.
-     * Tie-breaker: nilai juri lebih tinggi, lalu waktu Finalise lebih awal.
+     * Hitung rekap nilai akhir, ranking, dan tie-breaker per kategori (REP-01, CFG-08).
+     *
+     * @return Collection<int, array{option: CategoryOption|null, projects: Collection}>
      */
-    public function compute(Stream $stream): Collection
+    public function recomputeRecap(Stream $stream): Collection
     {
-        if ($stream->isResultsPublished()) {
-            return $this->results($stream);
-        }
-
-        $stream->loadMissing(['categoryDimensions.options', 'event']);
+        $stream->load('categoryDimensions.options');
         $dimension = $stream->rankingDimension();
 
+        // Bobot nilai akhir (CFG-08)
+        $vWeight = $stream->verification_weight ?: 30;
+        $jWeight = $stream->judging_weight ?: 70;
+
+        // Ambil seluruh project yang masuk tahap penjurian/final
         $projects = $stream->projects()
-            ->with(['categories', 'scoreSheets', 'stream.event'])
-            ->whereIn('status', Project::CONVENTION_STATUSES)
+            ->with([
+                'categories.dimension',
+                'leader',
+                'teamMembers.employee',
+                'scoreSheets.items',
+                'finalResult',
+            ])
+            ->whereIn('status', [
+                Project::STATUS_QUALIFIED,
+                Project::STATUS_FINALISED,
+                Project::STATUS_JUDGING,
+                Project::STATUS_ANNOUNCED,
+            ])
             ->get();
 
-        $rows = $projects->map(function (Project $project) use ($dimension) {
-            $verification = $this->scoring->verificationScore($project);
-            $judging = $this->scoring->judgingScore($project);
+        $dimensionOptions = $dimension ? $dimension->options : collect();
+
+        // Kalkulasi skor gabungan tiap project
+        $recapRows = $projects->map(function (Project $p) use ($dimension, $vWeight, $jWeight) {
+            $option = $dimension ? $p->categories->firstWhere('dimension_id', $dimension->id) : null;
+
+            // Rata-rata nilai verifikasi (stage: verification, status: submitted)
+            $vSheets = $p->scoreSheets->where('stage', ScoringParameter::STAGE_VERIFICATION)->where('status', 'submitted');
+            $verificationScore = $vSheets->isNotEmpty() ? (float) $vSheets->avg('total_weighted') : null;
+
+            // Rata-rata nilai juri (stage: judging, status: submitted)
+            $jSheets = $p->scoreSheets->where('stage', ScoringParameter::STAGE_JUDGING)->where('status', 'submitted');
+            $judgingScore = $jSheets->isNotEmpty() ? (float) $jSheets->avg('total_weighted') : null;
+
+            // Final score gabungan: (vScore * vWeight / 100) + (jScore * jWeight / 100)
+            $computedV = $verificationScore !== null ? ($verificationScore * $vWeight) / 100 : 0;
+            $computedJ = $judgingScore !== null ? ($judgingScore * $jWeight) / 100 : 0;
+            $finalScore = round($computedV + $computedJ, 2);
 
             return [
-                'project' => $project,
-                'option_id' => $dimension ? $project->categories->firstWhere('dimension_id', $dimension->id)?->id : null,
-                'verification' => $verification,
-                'judging' => $judging,
-                'final' => $this->scoring->finalScore($project, $verification, $judging),
-                'finalised_at' => $project->finalised_at?->timestamp ?? PHP_INT_MAX,
+                'project' => $p,
+                'project_id' => $p->id,
+                'registration_code' => $p->registration_code,
+                'title' => $p->title,
+                'leader' => $p->leader?->only(['full_name', 'unit']),
+                'option_id' => $option?->id,
+                'option_name' => $option ? "{$option->name} ({$option->abbreviation})" : 'Umum',
+                'verification_score' => $verificationScore !== null ? round($verificationScore, 2) : null,
+                'judging_score' => $judgingScore !== null ? round($judgingScore, 2) : null,
+                'verification_weight' => $vWeight,
+                'judging_weight' => $jWeight,
+                'final_score' => $finalScore,
+                'finalised_at' => $p->finalised_at,
+                'submitted_at' => $p->submitted_at ?? $p->created_at,
+                'award_title' => $p->finalResult?->award_title,
+                'status' => $p->status,
             ];
         });
 
-        DB::transaction(function () use ($rows, $stream) {
-            foreach ($rows->groupBy(fn ($r) => $r['option_id'] ?? 0) as $group) {
-                $ranked = $group->sort(function ($a, $b) {
-                    return [($b['final'] ?? -1), ($b['judging'] ?? -1), $a['finalised_at']]
-                        <=> [($a['final'] ?? -1), ($a['judging'] ?? -1), $b['finalised_at']];
-                })->values();
+        // Kelompokkan per kategori opsi dan terapkan Tie-Breaker
+        $grouped = $dimensionOptions->map(function (CategoryOption $option) use ($recapRows, $stream, $vWeight, $jWeight) {
+            $optionRows = $recapRows->where('option_id', $option->id);
 
-                foreach ($ranked as $idx => $row) {
-                    FinalResult::updateOrCreate(
-                        ['project_id' => $row['project']->id],
-                        [
-                            'ranking_option_id' => $row['option_id'],
-                            'verification_score' => $row['verification'],
-                            'judging_score' => $row['judging'],
-                            'final_score' => $row['final'],
-                            'rank_in_category' => $idx + 1,
-                        ]
-                    );
+            $rankedProjects = $this->applyTieBreakerAndRanking($optionRows, $stream, $option->id, $vWeight, $jWeight);
+
+            return [
+                'option' => [
+                    'id' => $option->id,
+                    'name' => $option->name,
+                    'abbreviation' => $option->abbreviation,
+                    'quota' => $option->quota,
+                ],
+                'projects' => $rankedProjects,
+            ];
+        })->values();
+
+        // Project tanpa kategori jika ada
+        $uncategorized = $recapRows->whereNull('option_id');
+        if ($uncategorized->isNotEmpty()) {
+            $rankedUncat = $this->applyTieBreakerAndRanking($uncategorized, $stream, null, $vWeight, $jWeight);
+            $grouped->push([
+                'option' => null,
+                'projects' => $rankedUncat,
+            ]);
+        }
+
+        return $grouped;
+    }
+
+    /**
+     * Terapkan aturan Tie-Breaker resmi (REP-01) dan simpan ke final_results:
+     * 1. final_score DESC
+     * 2. judging_score DESC
+     * 3. finalised_at ASC
+     * 4. submitted_at ASC
+     */
+    protected function applyTieBreakerAndRanking(
+        Collection $rows,
+        Stream $stream,
+        ?int $optionId,
+        int $vWeight,
+        int $jWeight
+    ): Collection {
+        $sorted = $rows->sort(function ($a, $b) {
+            // 1. final_score DESC
+            if ($a['final_score'] !== $b['final_score']) {
+                return $a['final_score'] < $b['final_score'] ? 1 : -1;
+            }
+
+            // 2. Tie-break 1: judging_score DESC
+            $jA = $a['judging_score'] ?? -1;
+            $jB = $b['judging_score'] ?? -1;
+            if ($jA !== $jB) {
+                return $jA < $jB ? 1 : -1;
+            }
+
+            // 3. Tie-break 2: finalised_at ASC (lebih awal lebih baik)
+            $fA = $a['finalised_at'] ? $a['finalised_at']->timestamp : PHP_INT_MAX;
+            $fB = $b['finalised_at'] ? $b['finalised_at']->timestamp : PHP_INT_MAX;
+            if ($fA !== $fB) {
+                return $fA > $fB ? 1 : -1;
+            }
+
+            // 4. Tie-break 3: submitted_at ASC
+            $sA = $a['submitted_at'] ? $a['submitted_at']->timestamp : PHP_INT_MAX;
+            $sB = $b['submitted_at'] ? $b['submitted_at']->timestamp : PHP_INT_MAX;
+
+            return $sA <=> $sB;
+        })->values();
+
+        // Assign Rank & Award Titles
+        return $sorted->map(function ($row, $idx) use ($optionId, $vWeight, $jWeight) {
+            $rank = $idx + 1;
+            $suggestedAward = $row['award_title'] ?? match ($rank) {
+                1 => 'Juara 1',
+                2 => 'Juara 2',
+                3 => 'Juara 3',
+                4 => 'Harapan 1',
+                5 => 'Harapan 2',
+                default => null,
+            };
+
+            // Update or create final_results record
+            FinalResult::updateOrCreate(
+                ['project_id' => $row['project_id']],
+                [
+                    'ranking_option_id' => $optionId,
+                    'verification_score' => $row['verification_score'],
+                    'judging_score' => $row['judging_score'],
+                    'verification_weight' => $vWeight,
+                    'judging_weight' => $jWeight,
+                    'final_score' => $row['final_score'],
+                    'rank_in_category' => $rank,
+                    'award_title' => $suggestedAward,
+                ]
+            );
+
+            $row['rank'] = $rank;
+            $row['award_title'] = $suggestedAward;
+
+            return $row;
+        });
+    }
+
+    /**
+     * Simpan kustomisasi gelar juara oleh Admin (misal: Best Innovation, Juara Favorit).
+     */
+    public function updateAwardTitles(Stream $stream, array $awards, User $admin): void
+    {
+        DB::transaction(function () use ($awards, $admin) {
+            foreach ($awards as $projectId => $awardTitle) {
+                $finalResult = FinalResult::where('project_id', $projectId)->first();
+                if ($finalResult) {
+                    $finalResult->update(['award_title' => $awardTitle ?: null]);
                 }
             }
 
             AuditLog::log(
-                action: 'COMPUTE_RECAP',
+                action: 'UPDATE_AWARDS',
                 entityType: 'Stream',
-                entityId: $stream->id,
-                reason: "Rekap nilai & ranking {$stream->name} dihitung ulang ({$rows->count()} project)",
+                entityId: null,
+                after: ['awards' => $awards],
+                reason: 'Admin memperbarui penetapan gelar pemenang BMG',
+                userId: $admin->id
             );
         });
-
-        return $this->results($stream);
     }
 
     /**
-     * Hasil ranking tersimpan, dikelompokkan per kategori.
+     * Publikasikan Hasil Resmi & Pengumuman Pemenang (ADM-05, NOT-07).
      */
-    public function results(Stream $stream): Collection
-    {
-        $stream->loadMissing('categoryDimensions.options');
-        $dimension = $stream->rankingDimension();
-
-        $results = FinalResult::with(['project.leader', 'project.categories.dimension', 'project.scoreSheets'])
-            ->whereHas('project', fn ($q) => $q->where('stream_id', $stream->id))
-            ->orderBy('rank_in_category')
-            ->get();
-
-        $options = $dimension ? $dimension->options : collect();
-
-        $groups = $options->map(fn ($option) => [
-            'option' => ['id' => $option->id, 'name' => $option->name, 'abbreviation' => $option->abbreviation],
-            'results' => $results->where('ranking_option_id', $option->id)->values()->map(fn ($r) => $this->present($r)),
-        ]);
-
-        $other = $results->whereNull('ranking_option_id');
-        if ($other->isNotEmpty()) {
-            $groups->push(['option' => null, 'results' => $other->values()->map(fn ($r) => $this->present($r))]);
-        }
-
-        return $groups->filter(fn ($g) => $g['results']->isNotEmpty())->values();
-    }
-
-    /**
-     * Publish pengumuman pemenang (ADM-05, NOT-07): nilai dikunci.
-     */
-    public function publish(Stream $stream, User $admin): void
+    public function publishWinners(Stream $stream, User $admin): array
     {
         if ($stream->isResultsPublished()) {
-            throw ValidationException::withMessages(['recap' => 'Hasil stream ini sudah diumumkan.']);
-        }
-
-        $pending = $stream->projects()->where('status', Project::STATUS_FINALISED)->count();
-        if ($pending > 0) {
             throw ValidationException::withMessages([
-                'recap' => "Masih ada {$pending} project Finalised yang belum dinilai lengkap oleh semua juri.",
+                'publish' => 'Hasil pemenang stream ini sudah dipublikasikan sebelumnya.',
             ]);
         }
 
-        $this->compute($stream);
+        return DB::transaction(function () use ($stream, $admin) {
+            $stream->update(['results_published_at' => now()]);
 
-        DB::transaction(function () use ($stream, $admin) {
-            $now = now();
+            // Ambil seluruh final results untuk stream ini
+            $finalResults = FinalResult::whereHas('project', fn ($q) => $q->where('stream_id', $stream->id))->get();
 
-            FinalResult::whereHas('project', fn ($q) => $q->where('stream_id', $stream->id))
-                ->update(['published_at' => $now]);
+            foreach ($finalResults as $fr) {
+                $fr->update(['published_at' => now()]);
+            }
 
-            $stream->projects()->where('status', Project::STATUS_JUDGING)->update(['status' => Project::STATUS_ANNOUNCED]);
-            $stream->update(['results_published_at' => $now]);
+            // Update status project ke announced
+            $stream->projects()
+                ->whereIn('status', [Project::STATUS_QUALIFIED, Project::STATUS_FINALISED, Project::STATUS_JUDGING])
+                ->update(['status' => Project::STATUS_ANNOUNCED]);
 
+            // Catat audit log
             AuditLog::log(
-                action: 'PUBLISH_RESULTS',
+                action: 'PUBLISH_WINNERS',
                 entityType: 'Stream',
                 entityId: $stream->id,
-                reason: "Pengumuman pemenang {$stream->name} dipublish",
-                userId: $admin->id,
+                after: [
+                    'results_published_at' => now(),
+                    'total_announced' => $finalResults->count(),
+                ],
+                reason: "Admin mempublikasikan hasil resmi pemenang BMG untuk {$stream->name}",
+                userId: $admin->id
             );
-        });
 
-        // NOT-07: semua peserta stream
-        $stream->projects()->where('status', '!=', Project::STATUS_DRAFT)->get()->each(function (Project $project) use ($stream) {
-            $this->notifier->notifyTeam(
-                $project,
-                'winner_announcement',
-                "Pengumuman Pemenang {$stream->name}",
-                'Hasil akhir dan ranking Bulan Mutu GGF telah diumumkan. Buka portal untuk melihat hasil tim Anda dan leaderboard juara per kategori.',
-            );
+            // Broadcast notifikasi pemenang (NOT-07)
+            $this->notifyAllParticipants($stream);
+
+            return [
+                'total_winners' => $finalResults->whereNotNull('award_title')->count(),
+                'total_projects' => $finalResults->count(),
+            ];
         });
     }
 
-    public function present(FinalResult $result): array
+    /**
+     * NOT-07: Broadcast notifikasi pemenang ke seluruh peserta di stream ini.
+     */
+    protected function notifyAllParticipants(Stream $stream): void
     {
-        $project = $result->project;
+        $projects = $stream->projects()->with(['leader', 'teamMembers.employee', 'finalResult'])->get();
 
-        return [
-            'project_id' => $project->id,
-            'registration_code' => $project->registration_code,
-            'title' => $project->title,
-            'status' => $project->status,
-            'status_label' => $project->status_label,
-            'category_label' => $project->categoryLabel(),
-            'leader' => $project->leader?->only(['full_name', 'unit']),
-            'verification_score' => $result->verification_score,
-            'judging_score' => $result->judging_score,
-            'final_score' => $result->final_score,
-            'rank' => $result->rank_in_category,
-            'judge_count' => $project->scoreSheets->where('stage', 'judging')->where('status', 'submitted')->count(),
-            'published_at' => $result->published_at,
-        ];
+        foreach ($projects as $project) {
+            $award = $project->finalResult?->award_title;
+            $rank = $project->finalResult?->rank_in_category;
+
+            $title = $award
+                ? "Selamat! Tim Anda Meraih {$award} di Bulan Mutu GGF 2026!"
+                : 'Pengumuman Pemenang Bulan Mutu GGF 2026 Telah Resmi Dirilis';
+
+            $message = $award
+                ? "Selamat kepada tim {$project->registration_code} - {$project->title}! Anda resmi meraih gelar {$award} (Peringkat {$rank}) pada kategori ini."
+                : "Terima kasih atas partisipasi dan inovasi luar biasa tim Anda pada project {$project->registration_code}. Seluruh rekap nilai dan pengumuman pemenang dapat diakses pada portal BMG.";
+
+            $this->notifier->notifyTeam(
+                $project,
+                'winner_announcement',
+                $title,
+                $message,
+                '/viewer/dashboard'
+            );
+        }
     }
 }

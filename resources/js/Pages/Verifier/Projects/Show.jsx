@@ -6,6 +6,7 @@ import Badge from '@/Components/Badge';
 import Button from '@/Components/Button';
 import Input from '@/Components/Input';
 import Modal from '@/Components/Modal';
+import FeedbackThread from '@/Components/FeedbackThread';
 import { 
     ArrowLeft, 
     FileText, 
@@ -656,64 +657,12 @@ export default function VerifierProjectShow({
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                         {/* Feedbacks timeline (2 cols) */}
                         <div className="lg:col-span-2 space-y-4">
-                            <Card title="Daftar Catatan Verifikator & Feedback">
-                                {feedbacks.length > 0 ? (
-                                    <div className="space-y-4">
-                                        {feedbacks.map((fb) => (
-                                            <div key={fb.id} className="p-4 rounded-xl border border-slate-200 bg-white space-y-2.5 shadow-xs">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-bold text-xs text-slate-800">
-                                                            {fb.author?.employee?.full_name || 'Verifikator'}
-                                                        </span>
-                                                        {fb.charter_section && (
-                                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                                                                Seksi: {feedbackSections[fb.charter_section] || fb.charter_section}
-                                                            </span>
-                                                        )}
-                                                    </div>
-
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                                            fb.status === 'sent' 
-                                                                ? 'bg-emerald-100 text-emerald-800' 
-                                                                : 'bg-amber-100 text-amber-800'
-                                                        }`}>
-                                                            {fb.status === 'sent' ? 'Terkirim ke Tim' : 'Draf Pribadi'}
-                                                        </span>
-
-                                                        {fb.author_user_id === user.id && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleDeleteFeedback(fb.id)}
-                                                                className="text-slate-400 hover:text-rose-600 p-1 rounded"
-                                                            >
-                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                                    {fb.body}
-                                                </p>
-
-                                                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
-                                                    <span>Dibuat: {new Date(fb.created_at).toLocaleString('id-ID')}</span>
-                                                    {fb.status === 'sent' && (
-                                                        <span>
-                                                            {fb.read_at ? `Dibaca peserta: ${new Date(fb.read_at).toLocaleDateString('id-ID')}` : 'Belum dibaca peserta'}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="py-8 text-center text-slate-400 text-xs">
-                                        Belum ada catatan feedback untuk project ini.
-                                    </div>
-                                )}
+                            <Card title="Daftar Catatan Verifikator & Feedback Diskusi (PAR-09)">
+                                <FeedbackThread
+                                    feedbacks={feedbacks}
+                                    isParticipant={false}
+                                    projectId={project.id}
+                                />
                             </Card>
                         </div>
 

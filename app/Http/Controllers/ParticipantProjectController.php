@@ -388,6 +388,54 @@ class ParticipantProjectController extends Controller
     }
 
     /**
+     * Balas catatan feedback (thread) oleh peserta (PAR-09).
+     */
+    public function replyFeedback(Request $request, Feedback $feedback): RedirectResponse
+    {
+        $project = $feedback->project;
+        $this->authorize('update', $project);
+
+        $request->validate([
+            'body' => ['required', 'string', 'max:2000'],
+        ], [
+            'body.required' => 'Isi balasan feedback tidak boleh kosong.',
+            'body.max' => 'Isi balasan maksimal 2.000 karakter.',
+        ]);
+
+        $project->feedbacks()->create([
+            'parent_id' => $feedback->id,
+            'author_user_id' => $request->user()->id,
+            'charter_section' => $feedback->charter_section,
+            'body' => $request->input('body'),
+            'status' => Feedback::STATUS_SENT,
+            'sent_at' => now(),
+        ]);
+
+        return back()->with('success', 'Balasan feedback berhasil dikirim.');
+    }
+
+    /**
+     * Tandai catatan feedback sudah ditindaklanjuti (PAR-09).
+     */
+    public function resolveFeedback(Request $request, Feedback $feedback): RedirectResponse
+    {
+        $project = $feedback->project;
+        $this->authorize('update', $project);
+
+        $newResolved = ! $feedback->is_resolved;
+
+        $feedback->update([
+            'is_resolved' => $newResolved,
+            'resolved_at' => $newResolved ? now() : null,
+            'resolved_by' => $newResolved ? $request->user()->id : null,
+        ]);
+
+        $statusMsg = $newResolved ? 'ditandai sudah ditindaklanjuti' : 'dibatalkan status tindak lanjutnya';
+
+        return back()->with('success', "Catatan feedback berhasil {$statusMsg}.");
+    }
+
+    /**
      * Update project charter snapshot (v1 -> v2 versioning) (PAR-06).
      */
     public function updateCharter(Request $request, Project $project): RedirectResponse

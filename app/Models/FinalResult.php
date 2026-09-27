@@ -15,8 +15,11 @@ class FinalResult extends Model
         'ranking_option_id',
         'verification_score',
         'judging_score',
+        'verification_weight',
+        'judging_weight',
         'final_score',
         'rank_in_category',
+        'award_title',
         'published_at',
     ];
 
@@ -25,6 +28,8 @@ class FinalResult extends Model
         return [
             'verification_score' => 'float',
             'judging_score' => 'float',
+            'verification_weight' => 'integer',
+            'judging_weight' => 'integer',
             'final_score' => 'float',
             'rank_in_category' => 'integer',
             'published_at' => 'datetime',
