@@ -628,9 +628,18 @@ class ParticipantProjectController extends Controller
         $storageDir = "private/events/{$eventId}/projects/{$project->id}";
         $path = $uploadedFile->storeAs($storageDir, "{$uuid}.{$ext}");
 
+        $category = $request->input('file_category', 'supporting');
+
+        // When uploading a new final presentation or video, mark previous active files as supporting
+        if ($category === 'final_presentation') {
+            $project->files()->where('file_category', 'final_presentation')->update(['file_category' => 'supporting']);
+        } elseif ($category === 'final_video') {
+            $project->files()->where('file_category', 'final_video')->update(['file_category' => 'supporting']);
+        }
+
         $project->files()->create([
             'charter_version_id' => $project->current_version_id,
-            'file_category' => $request->input('file_category', 'supporting'),
+            'file_category' => $category,
             'storage_path' => $path,
             'original_name' => $uploadedFile->getClientOriginalName(),
             'mime_type' => $uploadedFile->getMimeType(),

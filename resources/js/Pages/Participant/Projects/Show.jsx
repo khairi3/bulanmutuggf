@@ -31,6 +31,7 @@ import {
     Send,
     Video,
     Eye,
+    Presentation,
 } from 'lucide-react';
 
 export default function ProjectShow({ project }) {
@@ -45,8 +46,16 @@ export default function ProjectShow({ project }) {
     const [isFinalising, setIsFinalising] = useState(false);
 
     const currentVersion = project.current_version || project.versions?.[0];
-    const presentationFile = project.files?.find(f => f.file_category === 'final_presentation');
-    const videoFile = project.files?.find(f => f.file_category === 'final_video');
+    const presentationFile = project.files?.find(f => f.file_category === 'final_presentation')
+        || project.files?.find(f => {
+            const ext = f.original_name?.toLowerCase().split('.').pop();
+            return f.file_category === 'supporting' && ['pdf', 'pptx', 'ppt'].includes(ext);
+        });
+    const videoFile = project.files?.find(f => f.file_category === 'final_video')
+        || project.files?.find(f => {
+            const ext = f.original_name?.toLowerCase().split('.').pop();
+            return f.file_category === 'supporting' && ['mp4', 'mov', 'webm'].includes(ext);
+        });
 
     // Form Update Charter (v1 -> v2 versioning PAR-06)
     const updateForm = useForm({
@@ -65,6 +74,7 @@ export default function ProjectShow({ project }) {
     });
 
     // Form Upload File
+    const [uploadCategory, setUploadCategory] = useState('supporting');
     const uploadForm = useForm({
         file: null,
         external_url: '',
@@ -73,7 +83,14 @@ export default function ProjectShow({ project }) {
     });
 
     const openUploadModal = (category = 'supporting') => {
-        uploadForm.setData('file_category', category);
+        setUploadCategory(category);
+        uploadForm.clearErrors();
+        uploadForm.setData({
+            file: null,
+            external_url: '',
+            original_name: '',
+            file_category: category,
+        });
         setIsUploadModalOpen(true);
     };
 
@@ -90,6 +107,8 @@ export default function ProjectShow({ project }) {
     const handleUploadFile = (e) => {
         e.preventDefault();
         uploadForm.post(`/participant/projects/${project.id}/files`, {
+            forceFormData: true,
+            preserveScroll: true,
             onSuccess: () => {
                 setIsUploadModalOpen(false);
                 uploadForm.reset();
@@ -860,8 +879,20 @@ export default function ProjectShow({ project }) {
             <Modal
                 isOpen={isUploadModalOpen}
                 onClose={() => setIsUploadModalOpen(false)}
-                title="Unggah Berkas / Materi Project (PAR-04 & PAR-11)"
-                description="Lampirkan dokumen pendukung PPT, PDF, XLS, JPG atau masukkan link Google Drive / YouTube."
+                title={
+                    uploadCategory === 'final_presentation'
+                        ? 'Unggah Materi Presentasi Final (PDF / PPTX)'
+                        : uploadCategory === 'final_video'
+                            ? 'Unggah / Perbarui Video Inovasi Final'
+                            : 'Unggah Berkas Pendukung Project'
+                }
+                description={
+                    uploadCategory === 'final_presentation'
+                        ? 'Unggah berkas presentasi akhir Anda untuk dinilai oleh Dewan Juri. Berkas ini akan langsung dipratinjau pada layar penilaian Convention Day.'
+                        : uploadCategory === 'final_video'
+                            ? 'Unggah berkas video MP4 (maks. 100 MB) atau masukkan link video eksternal (YouTube / Google Drive).'
+                            : 'Lampirkan dokumen pendukung PDF, Excel, PowerPoint, atau gambar dokumentasi inovasi.'
+                }
                 footer={
                     <>
                         <Button variant="secondary" onClick={() => setIsUploadModalOpen(false)}>
@@ -878,53 +909,110 @@ export default function ProjectShow({ project }) {
                 }
             >
                 <form className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-800 mb-1">
-                            Kategori Berkas
-                        </label>
-                        <select
-                            value={uploadForm.data.file_category}
-                            onChange={(e) => uploadForm.setData('file_category', e.target.value)}
-                            className="w-full p-2.5 rounded-lg border border-slate-300 text-sm"
-                        >
-                            <option value="supporting">Dokumen Pendukung Umum</option>
-                            <option value="final_presentation">Materi Presentasi Final Convention (PDF)</option>
-                            <option value="final_video">Video Inovasi Final (MP4)</option>
-                        </select>
-                    </div>
+                    {/* Error Alerts */}
+                    {Object.keys(uploadForm.errors).length > 0 && (
+                        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs space-y-1">
+                            <div className="font-bold flex items-center gap-1.5">
+                                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                                Gagal mengunggah berkas:
+                            </div>
+                            {Object.values(uploadForm.errors).map((err, idx) => (
+                                <p key={idx} className="pl-5 text-rose-700 font-medium">• {err}</p>
+                            ))}
+                        </div>
+                    )}
 
+                    {/* Category Indicator / Selector */}
+                    {uploadCategory === 'final_presentation' ? (
+                        <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-xl border border-purple-200 text-xs text-purple-900 font-semibold">
+                            <Presentation className="w-4 h-4 text-purple-700 shrink-0" />
+                            <span>Kategori: Materi Presentasi Final Convention (Wajib)</span>
+                        </div>
+                    ) : uploadCategory === 'final_video' ? (
+                        <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-xl border border-blue-200 text-xs text-blue-900 font-semibold">
+                            <Video className="w-4 h-4 text-blue-700 shrink-0" />
+                            <span>Kategori: Video Inovasi Final</span>
+                        </div>
+                    ) : (
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-800 mb-1">
+                                Kategori Berkas
+                            </label>
+                            <select
+                                value={uploadForm.data.file_category}
+                                onChange={(e) => uploadForm.setData('file_category', e.target.value)}
+                                className="w-full p-2.5 rounded-lg border border-slate-300 text-sm"
+                            >
+                                <option value="supporting">Dokumen Pendukung Umum</option>
+                                <option value="final_presentation">Materi Presentasi Final Convention (PDF)</option>
+                                <option value="final_video">Video Inovasi Final (MP4)</option>
+                            </select>
+                        </div>
+                    )}
+
+                    {/* File Picker */}
                     <div>
                         <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                            Pilih Berkas Komputer/HP (Maks. 100 MB)
+                            {uploadCategory === 'final_presentation'
+                                ? 'Pilih Berkas Presentasi (Format PDF Sangat Disarankan, Maks. 100 MB)'
+                                : uploadCategory === 'final_video'
+                                    ? 'Pilih Berkas Video (MP4 / WebM, Maks. 100 MB)'
+                                    : 'Pilih Berkas Komputer/HP (Maks. 100 MB)'}
                         </label>
                         <input
+                            key={uploadCategory}
                             type="file"
-                            accept=".pdf,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.mp4"
-                            onChange={(e) => uploadForm.setData('file', e.target.files[0])}
-                            className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                            accept={
+                                uploadCategory === 'final_presentation'
+                                    ? '.pdf,.pptx,.ppt'
+                                    : uploadCategory === 'final_video'
+                                        ? '.mp4,.mov,.webm'
+                                        : '.pdf,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.mp4'
+                            }
+                            onChange={(e) => {
+                                if (e.target.files && e.target.files[0]) {
+                                    uploadForm.setData('file', e.target.files[0]);
+                                }
+                            }}
+                            className="block w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer border border-slate-200 rounded-xl p-1.5"
                         />
-                    </div>
 
-                    <div className="pt-2 border-t border-slate-100">
-                        <Input
-                            id="external_url_upload"
-                            label="Atau Tautan Video Eksternal (Google Drive / YouTube)"
-                            placeholder="https://drive.google.com/... atau https://youtu.be/..."
-                            value={uploadForm.data.external_url}
-                            onChange={(e) => uploadForm.setData('external_url', e.target.value)}
-                        />
-                        {uploadForm.data.external_url && (
-                            <div className="mt-2">
-                                <Input
-                                    id="video_title"
-                                    label="Judul Video Eksternal"
-                                    placeholder="Contoh: Video Dokumentasi Lapangan Mesin Sortir"
-                                    value={uploadForm.data.original_name}
-                                    onChange={(e) => uploadForm.setData('original_name', e.target.value)}
-                                />
+                        {uploadForm.data.file && (
+                            <div className="mt-2 p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between">
+                                <span className="font-semibold truncate max-w-xs">✓ Berkas terpilih: {uploadForm.data.file.name}</span>
+                                <span className="text-[11px] text-emerald-600 font-medium">
+                                    ({(uploadForm.data.file.size / (1024 * 1024)).toFixed(2)} MB)
+                                </span>
                             </div>
                         )}
+                        {uploadForm.errors.file && (
+                            <p className="text-xs text-rose-600 mt-1 font-semibold">{uploadForm.errors.file}</p>
+                        )}
                     </div>
+
+                    {/* External URL for video/supporting */}
+                    {uploadCategory !== 'final_presentation' && (
+                        <div className="pt-2 border-t border-slate-100">
+                            <Input
+                                id="external_url_upload"
+                                label="Atau Tautan Video Eksternal (Google Drive / YouTube)"
+                                placeholder="https://drive.google.com/... atau https://youtu.be/..."
+                                value={uploadForm.data.external_url}
+                                onChange={(e) => uploadForm.setData('external_url', e.target.value)}
+                            />
+                            {uploadForm.data.external_url && (
+                                <div className="mt-2">
+                                    <Input
+                                        id="video_title"
+                                        label="Judul Video Eksternal"
+                                        placeholder="Contoh: Video Dokumentasi Lapangan Mesin Sortir"
+                                        value={uploadForm.data.original_name}
+                                        onChange={(e) => uploadForm.setData('original_name', e.target.value)}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </form>
             </Modal>
 
