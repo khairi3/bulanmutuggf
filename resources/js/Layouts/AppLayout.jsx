@@ -66,8 +66,9 @@ export default function AppLayout({ title, header, children }) {
                     { name: 'Konfigurasi Event', href: '/admin/events', icon: Settings, badge: 'Aktif' },
                     { name: 'Evaluator & Penugasan', href: '/admin/assignments', icon: UserCheck, badge: 'Aktif' },
                     { name: 'Seleksi Convention', href: '/admin/selection', icon: Award, badge: 'Phase 5' },
+                    { name: 'Rekap & Pemenang', href: '/admin/recap', icon: Award, badge: 'Phase 6' },
                     { name: 'Monitoring Project', href: '/admin/dashboard', icon: FileText, badge: 'Aktif' },
-                    { name: 'Audit Log', href: '/admin/dashboard', icon: Shield, badge: 'Aktif' },
+                    { name: 'Audit Log', href: '/admin/audit-logs', icon: Shield, badge: 'Aktif' },
                 ];
             case 'verifier':
                 return [
@@ -77,6 +78,7 @@ export default function AppLayout({ title, header, children }) {
                     { name: 'Sedang Diverifikasi', href: '/verifier/dashboard?status=in_verification', icon: FileCheck },
                     { name: 'Sudah Terverifikasi', href: '/verifier/dashboard?status=verified', icon: Award },
                     { name: 'Seleksi Convention', href: '/verifier/selection', icon: Award, badge: 'Phase 5' },
+                    { name: 'Rekap & Pemenang', href: '/verifier/recap', icon: BarChart3 },
                 ];
             case 'judge':
                 return [
@@ -86,7 +88,7 @@ export default function AppLayout({ title, header, children }) {
             case 'viewer':
                 return [
                     { name: 'Executive Dashboard', href: '/viewer/dashboard', icon: BarChart3 },
-                    { name: 'Rekap & Leaderboard', href: '/viewer/dashboard', icon: Award, badge: 'Phase 6' },
+                    { name: 'Rekap & Leaderboard', href: '/viewer/recap', icon: Award, badge: 'Phase 6' },
                 ];
             default: // participant
                 return [

@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\AdminUnlockController;
 use App\Http\Controllers\AssignmentController;
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
@@ -9,6 +11,7 @@ use App\Http\Controllers\EventController;
 use App\Http\Controllers\JudgeController;
 use App\Http\Controllers\ParticipantProjectController;
 use App\Http\Controllers\PhaseController;
+use App\Http\Controllers\RecapController;
 use App\Http\Controllers\ScoringParameterController;
 use App\Http\Controllers\SelectionController;
 use App\Http\Controllers\VerifierController;
@@ -90,9 +93,20 @@ Route::middleware('auth')->group(function () {
         Route::post('/selection/draft', [SelectionController::class, 'storeDraft'])->name('selection.draft');
         Route::post('/streams/{stream}/selection/publish', [SelectionController::class, 'publish'])->name('selection.publish');
         Route::post('/projects/{project}/selection/override', [SelectionController::class, 'override'])->name('selection.override');
+
+        // Recap, Leaderboard & Winners Announcement (Tasks 6.1, 6.2, 6.3)
+        Route::get('/recap', [RecapController::class, 'index'])->name('recap.index');
+        Route::post('/streams/{stream}/recap/awards', [RecapController::class, 'updateAwards'])->name('recap.awards');
+        Route::post('/streams/{stream}/recap/publish', [RecapController::class, 'publish'])->name('recap.publish');
+        Route::get('/export', [RecapController::class, 'export'])->name('export');
+
+        // Admin Unlock with Audit Log (Task 6.4)
+        Route::post('/projects/{project}/unlock', [AdminUnlockController::class, 'unlockProject'])->name('projects.unlock');
+        Route::post('/score-sheets/{scoreSheet}/unlock', [AdminUnlockController::class, 'unlockScoreSheet'])->name('score-sheets.unlock');
+        Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
     });
 
-    // Participant Area (Phase 3 & Phase 5)
+    // Participant Area (Phase 3, 5 & 6)
     Route::middleware(['must.change.password', 'role:participant'])->prefix('participant')->name('participant.')->group(function () {
         Route::get('/dashboard', [ParticipantProjectController::class, 'index'])->name('dashboard');
         Route::get('/projects/create', [ParticipantProjectController::class, 'create'])->name('projects.create');
@@ -103,10 +117,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/projects/{project}/files', [ParticipantProjectController::class, 'uploadFile'])->name('projects.files.upload');
         Route::get('/projects/{project}/files/{file}/download', [ParticipantProjectController::class, 'downloadFile'])->name('projects.files.download');
         Route::post('/feedback/{feedback}/read', [ParticipantProjectController::class, 'markFeedbackRead'])->name('feedback.read');
+        Route::post('/feedback/{feedback}/reply', [ParticipantProjectController::class, 'replyFeedback'])->name('feedback.reply');
+        Route::post('/feedback/{feedback}/resolve', [ParticipantProjectController::class, 'resolveFeedback'])->name('feedback.resolve');
         Route::post('/projects/{project}/finalise', [ParticipantProjectController::class, 'finaliseProject'])->name('projects.finalise');
     });
 
-    // Verifier Area (Phase 4 & Phase 5)
+    // Verifier Area (Phase 4, 5 & 6)
     Route::middleware(['must.change.password', 'role:verifier'])->prefix('verifier')->name('verifier.')->group(function () {
         Route::get('/dashboard', [VerifierController::class, 'dashboard'])->name('dashboard');
         Route::get('/projects/{project}', [VerifierController::class, 'show'])->name('projects.show');
@@ -117,6 +133,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/projects/{project}/files/{file}/download', [VerifierController::class, 'downloadFile'])->name('projects.files.download');
         Route::get('/selection', [SelectionController::class, 'index'])->name('selection.index');
         Route::post('/selection/draft', [SelectionController::class, 'storeDraft'])->name('selection.draft');
+        Route::get('/recap', [RecapController::class, 'index'])->name('recap.index');
+        Route::get('/export', [RecapController::class, 'export'])->name('export');
     });
 
     // Judge Area (Phase 5)
@@ -127,8 +145,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/projects/{project}/files/{file}/download', [ParticipantProjectController::class, 'downloadFile'])->name('projects.files.download');
     });
 
-    // Viewer Management Area
+    // Viewer Management Area (Phase 6)
     Route::middleware(['must.change.password', 'role:viewer'])->prefix('viewer')->name('viewer.')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'viewer'])->name('dashboard');
+        Route::get('/recap', [RecapController::class, 'index'])->name('recap.index');
     });
 });

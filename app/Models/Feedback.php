@@ -38,6 +38,8 @@ class Feedback extends Model
         'body',
         'status',
         'is_resolved',
+        'resolved_at',
+        'resolved_by',
         'sent_at',
         'read_at',
     ];
@@ -46,9 +48,20 @@ class Feedback extends Model
     {
         return [
             'is_resolved' => 'boolean',
+            'resolved_at' => 'datetime',
             'sent_at' => 'datetime',
             'read_at' => 'datetime',
         ];
+    }
+
+    public function resolver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'resolved_by');
+    }
+
+    public function isResolved(): bool
+    {
+        return (bool) $this->is_resolved;
     }
 
     public function project(): BelongsTo
