@@ -321,6 +321,59 @@ class RecapAndManagementTest extends TestCase
         $this->assertEquals($this->participantUser->id, $feedback->resolved_by);
     }
 
+    public function test_participant_can_reply_and_resolve_feedback_when_status_is_verified(): void
+    {
+        $project = Project::create([
+            'stream_id' => $this->stream->id,
+            'title' => 'Project Verified Feedback Test',
+            'registration_code' => 'CIC-VERF-001',
+            'status' => Project::STATUS_VERIFIED,
+            'leader_employee_id' => $this->participantUser->employee->id,
+        ]);
+
+        $feedback = Feedback::create([
+            'project_id' => $project->id,
+            'author_user_id' => $this->verifierUser->id,
+            'charter_section' => 'problem_statement',
+            'body' => 'Perbaiki problem statement.',
+            'status' => Feedback::STATUS_SENT,
+        ]);
+
+        // Participant marks read via Inertia request
+        $readResponse = $this->actingAs($this->participantUser)
+            ->withSession(['active_role' => 'participant'])
+            ->withHeaders(['X-Inertia' => 'true'])
+            ->post("/participant/feedback/{$feedback->id}/read");
+
+        $readResponse->assertRedirect();
+        $feedback->refresh();
+        $this->assertNotNull($feedback->read_at);
+
+        // Participant replies when status is verified
+        $replyResponse = $this->actingAs($this->participantUser)
+            ->withSession(['active_role' => 'participant'])
+            ->post("/participant/feedback/{$feedback->id}/reply", [
+                'body' => 'Sudah kami perbaiki pada lampiran dokumen.',
+            ]);
+
+        $replyResponse->assertRedirect();
+        $this->assertDatabaseHas('feedbacks', [
+            'project_id' => $project->id,
+            'parent_id' => $feedback->id,
+            'author_user_id' => $this->participantUser->id,
+            'body' => 'Sudah kami perbaiki pada lampiran dokumen.',
+        ]);
+
+        // Participant resolves feedback when status is verified
+        $resolveResponse = $this->actingAs($this->participantUser)
+            ->withSession(['active_role' => 'participant'])
+            ->post("/participant/feedback/{$feedback->id}/resolve");
+
+        $resolveResponse->assertRedirect();
+        $feedback->refresh();
+        $this->assertTrue($feedback->isResolved());
+    }
+
     public function test_send_deadline_reminders_command(): void
     {
         // Update existing phase ending in 3 days

@@ -375,16 +375,20 @@ class ParticipantProjectController extends Controller
     /**
      * Mark verifier feedback as read by participant (VER-05, PAR-08).
      */
-    public function markFeedbackRead(Request $request, Feedback $feedback): JsonResponse
+    public function markFeedbackRead(Request $request, Feedback $feedback): mixed
     {
         $project = $feedback->project;
-        $this->authorize('view', $project);
+        $this->authorize('feedback', $project);
 
         if (! $feedback->read_at) {
             $feedback->update(['read_at' => now()]);
         }
 
-        return response()->json(['success' => true]);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json(['success' => true]);
+        }
+
+        return back()->with('success', 'Catatan feedback ditandai sudah dibaca.');
     }
 
     /**
@@ -393,7 +397,7 @@ class ParticipantProjectController extends Controller
     public function replyFeedback(Request $request, Feedback $feedback): RedirectResponse
     {
         $project = $feedback->project;
-        $this->authorize('update', $project);
+        $this->authorize('feedback', $project);
 
         $request->validate([
             'body' => ['required', 'string', 'max:2000'],
@@ -402,14 +406,28 @@ class ParticipantProjectController extends Controller
             'body.max' => 'Isi balasan maksimal 2.000 karakter.',
         ]);
 
+        $parentId = $feedback->parent_id ?: $feedback->id;
+
         $project->feedbacks()->create([
-            'parent_id' => $feedback->id,
+            'parent_id' => $parentId,
             'author_user_id' => $request->user()->id,
             'charter_section' => $feedback->charter_section,
             'body' => $request->input('body'),
             'status' => Feedback::STATUS_SENT,
             'sent_at' => now(),
         ]);
+
+        // Kirim notifikasi ke verifikator pembuat catatan
+        if ($feedback->author_user_id && $feedback->author_user_id !== $request->user()->id) {
+            $senderName = $request->user()->employee?->full_name ?? $request->user()->name;
+            Notification::send(
+                userId: $feedback->author_user_id,
+                type: 'feedback_reply',
+                title: "Balasan Catatan ({$project->registration_code})",
+                message: "{$senderName} membalas catatan verifikasi pada project {$project->registration_code}.",
+                link: "/verifier/projects/{$project->id}"
+            );
+        }
 
         return back()->with('success', 'Balasan feedback berhasil dikirim.');
     }
@@ -420,7 +438,7 @@ class ParticipantProjectController extends Controller
     public function resolveFeedback(Request $request, Feedback $feedback): RedirectResponse
     {
         $project = $feedback->project;
-        $this->authorize('update', $project);
+        $this->authorize('feedback', $project);
 
         $newResolved = ! $feedback->is_resolved;
 
@@ -429,6 +447,18 @@ class ParticipantProjectController extends Controller
             'resolved_at' => $newResolved ? now() : null,
             'resolved_by' => $newResolved ? $request->user()->id : null,
         ]);
+
+        // Kirim notifikasi ke verifikator pembuat catatan
+        if ($newResolved && $feedback->author_user_id && $feedback->author_user_id !== $request->user()->id) {
+            $senderName = $request->user()->employee?->full_name ?? $request->user()->name;
+            Notification::send(
+                userId: $feedback->author_user_id,
+                type: 'feedback_resolved',
+                title: "Catatan Ditindaklanjuti ({$project->registration_code})",
+                message: "{$senderName} menandai catatan verifikasi pada project {$project->registration_code} telah ditindaklanjuti.",
+                link: "/verifier/projects/{$project->id}"
+            );
+        }
 
         $statusMsg = $newResolved ? 'ditandai sudah ditindaklanjuti' : 'dibatalkan status tindak lanjutnya';
 

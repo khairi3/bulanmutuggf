@@ -16,6 +16,8 @@ export default function FeedbackThread({ feedbacks = [], isParticipant = true, p
     const [replyingToId, setReplyingToId] = useState(null);
     const [replyText, setReplyText] = useState('');
     const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+    const [resolvingId, setResolvingId] = useState(null);
+    const [markingReadId, setMarkingReadId] = useState(null);
 
     const handleSendReply = (feedbackId) => {
         if (!replyText.trim()) return;
@@ -41,15 +43,20 @@ export default function FeedbackThread({ feedbacks = [], isParticipant = true, p
     };
 
     const handleToggleResolve = (feedbackId) => {
-        if (!isParticipant) return;
+        if (!isParticipant || resolvingId) return;
+        setResolvingId(feedbackId);
         router.post(`/participant/feedback/${feedbackId}/resolve`, {}, {
             preserveScroll: true,
+            onFinish: () => setResolvingId(null),
         });
     };
 
     const handleMarkRead = (feedbackId) => {
+        if (markingReadId) return;
+        setMarkingReadId(feedbackId);
         router.post(`/participant/feedback/${feedbackId}/read`, {}, {
             preserveScroll: true,
+            onFinish: () => setMarkingReadId(null),
         });
     };
 
@@ -129,14 +136,19 @@ export default function FeedbackThread({ feedbacks = [], isParticipant = true, p
                                 <button
                                     type="button"
                                     onClick={() => handleToggleResolve(fb.id)}
-                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-xs ${
+                                    disabled={resolvingId === fb.id}
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-xs disabled:opacity-60 ${
                                         fb.is_resolved
                                             ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
                                             : 'bg-emerald-600 text-white hover:bg-emerald-700'
                                     }`}
                                 >
                                     <CheckCircle2 className="w-3.5 h-3.5" />
-                                    <span>{fb.is_resolved ? 'Batal Selesai' : 'Tandai Sudah Ditindaklanjuti'}</span>
+                                    <span>
+                                        {resolvingId === fb.id
+                                            ? 'Memproses...'
+                                            : (fb.is_resolved ? 'Batal Selesai' : 'Tandai Sudah Ditindaklanjuti')}
+                                    </span>
                                 </button>
                             )}
 
@@ -144,10 +156,11 @@ export default function FeedbackThread({ feedbacks = [], isParticipant = true, p
                                 <button
                                     type="button"
                                     onClick={() => handleMarkRead(fb.id)}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 transition"
+                                    disabled={markingReadId === fb.id}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 transition disabled:opacity-60"
                                 >
                                     <CheckCheck className="w-3.5 h-3.5 text-slate-400" />
-                                    <span>Tandai Dibaca</span>
+                                    <span>{markingReadId === fb.id ? 'Menandai...' : 'Tandai Dibaca'}</span>
                                 </button>
                             )}
 

@@ -59,6 +59,23 @@ class ProjectPolicy
     }
 
     /**
+     * Hak akses diskusi feedback catatan verifikator (PAR-08, PAR-09).
+     * Terbuka untuk admin, semua anggota tim peserta, dan verifikator yang ditugaskan.
+     */
+    public function feedback(User $user, Project $project): bool
+    {
+        if ($user->hasRole(Role::ADMIN)) {
+            return true;
+        }
+
+        if ($user->employee_id && $project->isMember($user->employee_id)) {
+            return true;
+        }
+
+        return $this->access->canVerify($user, $project);
+    }
+
+    /**
      * Unduh berkas: foto visit hanya untuk verifikator & admin.
      */
     public function downloadFile(User $user, Project $project, ProjectFile $file): bool
