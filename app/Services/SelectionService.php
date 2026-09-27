@@ -96,17 +96,14 @@ class SelectionService
     }
 
     /**
-     * Simpan keputusan seleksi (belum dipublish). $qualifiedIds = project yang dicentang "Lolos".
+     * Simpan keputusan seleksi (belum dipublish atau draf susulan). $qualifiedIds = project yang dicentang "Lolos".
      */
     public function saveDecisions(Stream $stream, array $projectIds, array $qualifiedIds, User $actor): void
     {
-        if ($stream->isSelectionPublished()) {
-            throw ValidationException::withMessages([
-                'selection' => 'Hasil seleksi stream ini sudah dipublish. Perubahan hanya bisa dilakukan Admin melalui override.',
-            ]);
-        }
-
-        $projects = $stream->projects()->whereIn('id', $projectIds)->where('status', Project::STATUS_VERIFIED)->get();
+        $projects = $stream->projects()
+            ->whereIn('id', $projectIds)
+            ->whereIn('status', [Project::STATUS_VERIFIED, Project::STATUS_QUALIFIED, Project::STATUS_UNQUALIFIED])
+            ->get();
 
         DB::transaction(function () use ($projects, $qualifiedIds, $actor, $stream) {
             foreach ($projects as $project) {
@@ -131,21 +128,22 @@ class SelectionService
     }
 
     /**
-     * Admin publish hasil seleksi: status berubah & notifikasi terkirim (ADM-03, NOT-05).
+     * Publish atau update hasil seleksi resmi ke Dashboard Juri (ADM-03, NOT-05, VER-10).
+     * Mendukung pengiriman awal maupun susulan peserta baru.
      */
     public function publish(Stream $stream, User $admin): array
     {
-        if ($stream->isSelectionPublished()) {
-            throw ValidationException::withMessages(['selection' => 'Hasil seleksi stream ini sudah dipublish sebelumnya.']);
-        }
-
-        $verified = $stream->projects()->with('selectionDecision')->where('status', Project::STATUS_VERIFIED)->get();
+        $projects = $stream->projects()
+            ->with('selectionDecision')
+            ->whereIn('status', [Project::STATUS_VERIFIED, Project::STATUS_QUALIFIED, Project::STATUS_UNQUALIFIED])
+            ->get();
 
         $qualified = 0;
         $unqualified = 0;
+        $newlyQualified = 0;
 
-        DB::transaction(function () use ($verified, $stream, $admin, &$qualified, &$unqualified) {
-            foreach ($verified as $project) {
+        DB::transaction(function () use ($projects, $stream, $admin, &$qualified, &$unqualified, &$newlyQualified) {
+            foreach ($projects as $project) {
                 $decision = $project->selectionDecision;
                 $isQualified = $decision?->decision === SelectionDecision::QUALIFIED;
 
@@ -158,7 +156,13 @@ class SelectionService
                 }
 
                 $decision->update(['published_at' => now()]);
-                $project->update(['status' => $isQualified ? Project::STATUS_QUALIFIED : Project::STATUS_UNQUALIFIED]);
+
+                $newStatus = $isQualified ? Project::STATUS_QUALIFIED : Project::STATUS_UNQUALIFIED;
+                if ($newStatus === Project::STATUS_QUALIFIED && $project->status !== Project::STATUS_QUALIFIED) {
+                    $newlyQualified++;
+                }
+
+                $project->update(['status' => $newStatus]);
                 $isQualified ? $qualified++ : $unqualified++;
             }
 
@@ -168,19 +172,27 @@ class SelectionService
                 action: 'PUBLISH_SELECTION',
                 entityType: 'Stream',
                 entityId: $stream->id,
-                after: ['qualified' => $qualified, 'unqualified' => $unqualified],
-                reason: "Publish hasil seleksi Convention Day {$stream->name}",
+                after: [
+                    'qualified' => $qualified,
+                    'unqualified' => $unqualified,
+                    'newly_qualified' => $newlyQualified,
+                ],
+                reason: "Publish/Pembaruan hasil seleksi Convention Day {$stream->name}",
                 userId: $admin->id,
             );
         });
 
-        foreach ($verified->fresh() as $project) {
+        foreach ($projects->fresh() as $project) {
             $this->notifySelection($project);
         }
 
         $this->notifyJudgesReady($stream);
 
-        return ['qualified' => $qualified, 'unqualified' => $unqualified];
+        return [
+            'qualified' => $qualified,
+            'unqualified' => $unqualified,
+            'newly_qualified' => $newlyQualified,
+        ];
     }
 
     /**

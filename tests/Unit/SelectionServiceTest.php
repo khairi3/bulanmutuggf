@@ -197,6 +197,46 @@ class SelectionServiceTest extends TestCase
         $this->assertEquals(Project::STATUS_UNQUALIFIED, $projectUnqualified->status);
     }
 
+    public function test_publish_can_be_run_again_to_submit_follow_up_qualified_projects(): void
+    {
+        $this->stream->update(['selection_published_at' => now()]);
+        $leader = Employee::where('employee_index', 'EMP1007')->first()->user;
+
+        // Existing project already finalised by team
+        $existingProject = Project::create([
+            'stream_id' => $this->stream->id,
+            'title' => 'Project Sudah Finalisasi',
+            'registration_code' => 'CIC-TEST-FIN',
+            'status' => Project::STATUS_FINALISED,
+            'leader_employee_id' => $leader->employee->id,
+        ]);
+
+        // Follow-up project newly verified
+        $followUpProject = Project::create([
+            'stream_id' => $this->stream->id,
+            'title' => 'Project Susulan Bagus',
+            'registration_code' => 'CIC-TEST-SUS',
+            'status' => Project::STATUS_VERIFIED,
+            'leader_employee_id' => $leader->employee->id,
+        ]);
+
+        SelectionDecision::create([
+            'project_id' => $followUpProject->id,
+            'decision' => SelectionDecision::QUALIFIED,
+            'decided_by' => $this->adminUser->id,
+        ]);
+
+        $result = $this->service->publish($this->stream, $this->adminUser);
+
+        $this->assertEquals(1, $result['newly_qualified']);
+        $followUpProject->refresh();
+        $this->assertEquals(Project::STATUS_QUALIFIED, $followUpProject->status);
+
+        // Existing finalised project was left intact
+        $existingProject->refresh();
+        $this->assertEquals(Project::STATUS_FINALISED, $existingProject->status);
+    }
+
     public function test_override_decision_records_audit_log_and_switches_status(): void
     {
         $this->stream->update(['selection_published_at' => now()]);

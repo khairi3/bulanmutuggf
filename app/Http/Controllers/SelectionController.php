@@ -85,10 +85,11 @@ class SelectionController extends Controller
 
         $result = $this->selectionService->publish($stream, $user);
 
-        return back()->with(
-            'success',
-            "Seleksi {$stream->name} berhasil difinalisasi! Sebanyak {$result['qualified']} tim dinyatakan Lolos Convention Day dan telah masuk ke Dashboard Juri untuk penilaian."
-        );
+        $msg = ($result['newly_qualified'] ?? 0) > 0
+            ? "Pembaruan seleksi {$stream->name} berhasil dikirim ke Juri! Sebanyak {$result['newly_qualified']} project susulan baru berhasil ditambahkan (total {$result['qualified']} tim lolos)."
+            : "Seleksi {$stream->name} berhasil difinalisasi! Sebanyak {$result['qualified']} tim dinyatakan Lolos Convention Day dan telah masuk ke Dashboard Juri untuk penilaian.";
+
+        return back()->with('success', $msg);
     }
 
     /**

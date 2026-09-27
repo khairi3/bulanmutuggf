@@ -29,7 +29,7 @@ export default function SelectionIndex({ streams = [], selectedStream, rankings 
     rankings.forEach(group => {
         group.projects.forEach(p => {
             allProjectIds.push(p.id);
-            if (p.decision === 'qualified') {
+            if (p.decision === 'qualified' || p.status === 'qualified' || p.status === 'finalised' || p.status === 'judging') {
                 initialQualifiedIds.push(p.id);
             }
         });
@@ -58,8 +58,10 @@ export default function SelectionIndex({ streams = [], selectedStream, rankings 
         router.get(url, { stream_id: streamId }, { preserveState: false });
     };
 
-    const toggleQualified = (projectId) => {
-        if (isPublished) return;
+    const toggleQualified = (projectId, project) => {
+        if (project && ['finalised', 'judging', 'announced'].includes(project.status)) {
+            return;
+        }
         setQualifiedIds(prev =>
             prev.includes(projectId)
                 ? prev.filter(id => id !== projectId)
@@ -68,14 +70,16 @@ export default function SelectionIndex({ streams = [], selectedStream, rankings 
     };
 
     const handleAutoSelectTopQuota = (group) => {
-        if (isPublished || !group.quota) return;
+        if (!group.quota) return;
         const topProjects = group.projects.slice(0, group.quota);
         const topIds = topProjects.map(p => p.id);
-        const otherGroupProjectIds = group.projects.map(p => p.id);
+        const otherGroupProjectIds = group.projects
+            .filter(p => !['finalised', 'judging', 'announced'].includes(p.status))
+            .map(p => p.id);
 
         setQualifiedIds(prev => {
             const filtered = prev.filter(id => !otherGroupProjectIds.includes(id));
-            return [...filtered, ...topIds];
+            return [...new Set([...filtered, ...topIds])];
         });
     };
 
@@ -181,29 +185,34 @@ export default function SelectionIndex({ streams = [], selectedStream, rankings 
 
                     {/* Action buttons */}
                     <div className="flex items-center gap-2">
-                        {!isPublished && (
-                            <>
-                                <button
-                                    type="button"
-                                    onClick={handleSaveDraft}
-                                    disabled={isSavingDraft}
-                                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 font-bold text-sm shadow-xs transition disabled:opacity-50"
-                                >
-                                    <Save className="w-4 h-4 text-slate-500" />
-                                    {isSavingDraft ? 'Menyimpan...' : 'Simpan Draf'}
-                                </button>
+                        <button
+                            type="button"
+                            onClick={handleSaveDraft}
+                            disabled={isSavingDraft}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 font-bold text-sm shadow-xs transition disabled:opacity-50 cursor-pointer"
+                        >
+                            <Save className="w-4 h-4 text-slate-500" />
+                            {isSavingDraft ? 'Menyimpan...' : 'Simpan Draf'}
+                        </button>
 
-                                {canFinalise && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setPublishConfirmModal(true)}
-                                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-bold text-sm shadow-md shadow-emerald-600/20 transition cursor-pointer"
-                                    >
+                        {canFinalise && (
+                            <button
+                                type="button"
+                                onClick={() => setPublishConfirmModal(true)}
+                                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-bold text-sm shadow-md shadow-emerald-600/20 transition cursor-pointer"
+                            >
+                                {isPublished ? (
+                                    <>
+                                        <Send className="w-4 h-4" />
+                                        <span>Kirim Pembaruan / Susulan ke Juri</span>
+                                    </>
+                                ) : (
+                                    <>
                                         <CheckCircle2 className="w-4 h-4" />
                                         <span>Finalise & Kirim ke Juri</span>
-                                    </button>
+                                    </>
                                 )}
-                            </>
+                            </button>
                         )}
                     </div>
                 </div>
@@ -212,11 +221,13 @@ export default function SelectionIndex({ streams = [], selectedStream, rankings 
                 {isPublished && (
                     <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-start gap-3">
                         <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
-                        <div className="text-sm text-emerald-900">
-                            <span className="font-bold">Status Resmi Terkunci:</span> Hasil seleksi stream{' '}
-                            <span className="font-semibold underline">{selectedStream?.name}</span> telah dipublikasikan.
-                            Tim yang lolos telah menerima notifikasi resmi dan dapat melakukan finalisasi materi presentasi.
-                            {isAdmin && ' Anda dapat menggunakan tombol Override jika terdapat perubahan penetapan khusus.'}
+                        <div className="text-sm text-emerald-900 leading-relaxed">
+                            <span className="font-bold">Status Seleksi Telah Dipublikasikan:</span> Hasil seleksi stream{' '}
+                            <span className="font-semibold underline">{selectedStream?.name}</span> telah dikirim ke Dashboard Juri.
+                            {publishedAt && <span className="text-xs text-emerald-700 ml-1">({publishedAt})</span>}
+                            <p className="mt-1 text-xs text-emerald-800">
+                                Apabila ada <strong>peserta susulan</strong> baru yang telah selesai verifikasi lapangan, Anda tetap dapat memilih / mencentang peserta tersebut di daftar bawah ini, lalu klik tombol <strong>"Kirim Pembaruan / Susulan ke Juri"</strong> untuk meneruskannya ke dashboard penilaian juri.
+                            </p>
                         </div>
                     </div>
                 )}
@@ -341,11 +352,11 @@ export default function SelectionIndex({ streams = [], selectedStream, rankings 
                                             </div>
                                         </div>
 
-                                        {!isPublished && quota && (
+                                        {quota && (
                                             <button
                                                 type="button"
                                                 onClick={() => handleAutoSelectTopQuota(group)}
-                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold transition self-start sm:self-auto"
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold transition self-start sm:self-auto cursor-pointer"
                                             >
                                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                                 Pilih Otomatis Top {quota} Kuota
@@ -409,9 +420,10 @@ export default function SelectionIndex({ streams = [], selectedStream, rankings 
                                                                     <input
                                                                         type="checkbox"
                                                                         checked={isQualified}
-                                                                        disabled={isPublished}
-                                                                        onChange={() => toggleQualified(project.id)}
-                                                                        className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed"
+                                                                        disabled={['finalised', 'judging', 'announced'].includes(project.status)}
+                                                                        onChange={() => toggleQualified(project.id, project)}
+                                                                        className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                                                                        title={['finalised', 'judging', 'announced'].includes(project.status) ? 'Project ini telah difinalisasi materi / dalam proses penilaian juri' : ''}
                                                                     />
                                                                 </td>
 
@@ -505,7 +517,9 @@ export default function SelectionIndex({ streams = [], selectedStream, rankings 
                             </div>
                             <div>
                                 <h3 className="text-lg font-black text-slate-900 leading-snug">
-                                    Konfirmasi Finalisasi & Kirim ke Dashboard Juri
+                                    {isPublished
+                                        ? 'Konfirmasi Pembaruan & Kirim Susulan ke Juri'
+                                        : 'Konfirmasi Finalisasi & Kirim ke Dashboard Juri'}
                                 </h3>
                                 <p className="text-xs text-slate-500 mt-1">
                                     Stream: <strong className="text-slate-800">{selectedStream?.name}</strong>
@@ -587,17 +601,17 @@ export default function SelectionIndex({ streams = [], selectedStream, rankings 
                         <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-3.5 text-xs text-emerald-900 space-y-1.5">
                             <div className="flex items-center gap-1.5 font-bold text-emerald-800">
                                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                <span>Alur Setelah Difinalisasi:</span>
+                                <span>Alur Setelah Dikirim ke Juri:</span>
                             </div>
                             <ul className="list-disc pl-5 space-y-1 text-[11px] text-emerald-800/90 leading-relaxed">
                                 <li>
-                                    Status <strong>{totalSelected} tim terpilih</strong> otomatis berubah menjadi <strong>Qualified (Lolos Convention Day)</strong>.
+                                    Status <strong>{totalSelected} tim terpilih</strong> ditetapkan sebagai <strong>Qualified (Lolos Convention Day)</strong>.
                                 </li>
                                 <li>
-                                    Project yang lolos akan langsung <strong>masuk ke antrean penilaian di Dashboard Juri</strong> untuk dinilai pada Convention Day.
+                                    Project yang lolos (termasuk tim susulan baru) akan langsung <strong>masuk ke antrean penilaian di Dashboard Juri</strong> untuk dinilai pada Convention Day.
                                 </li>
                                 <li>
-                                    Notifikasi resmi akan otomatis dikirimkan ke seluruh tim peserta terkait status kelolosan mereka.
+                                    Notifikasi resmi akan otomatis dikirimkan ke tim peserta terkait status kelolosan mereka.
                                 </li>
                             </ul>
                         </div>
@@ -620,12 +634,16 @@ export default function SelectionIndex({ streams = [], selectedStream, rankings 
                                 {isPublishing ? (
                                     <>
                                         <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                                        <span>Memproses Finalisasi...</span>
+                                        <span>Memproses...</span>
                                     </>
                                 ) : (
                                     <>
                                         <Send className="w-4 h-4" />
-                                        <span>Ya, Finalise & Kirim ke Juri Sekarang</span>
+                                        <span>
+                                            {isPublished
+                                                ? 'Ya, Kirim Pembaruan / Susulan Sekarang'
+                                                : 'Ya, Finalise & Kirim ke Juri Sekarang'}
+                                        </span>
                                     </>
                                 )}
                             </button>
