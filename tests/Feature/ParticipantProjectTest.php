@@ -283,4 +283,47 @@ class ParticipantProjectTest extends TestCase
         $forbiddenResponse = $this->actingAs($otherParticipant)->get("/participant/projects/{$project->id}/files/{$projectFile->id}/download");
         $forbiddenResponse->assertStatus(403);
     }
+
+    public function test_participant_can_view_draft_project(): void
+    {
+        $leader = Employee::where('employee_index', 'EMP1007')->first()->user;
+        $cic = Stream::where('code', Stream::CODE_CIC)->first();
+
+        $draft = Project::create([
+            'stream_id' => $cic->id,
+            'title' => 'Project Draft Pertanian',
+            'status' => 'draft',
+            'registration_code' => null,
+            'leader_employee_id' => $leader->employee_id,
+        ]);
+
+        $response = $this->actingAs($leader)->get("/participant/projects/{$draft->id}");
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('Participant/Projects/Show')
+            ->where('project.id', $draft->id)
+            ->where('project.status', 'draft')
+        );
+    }
+
+    public function test_participant_can_load_wizard_with_existing_draft(): void
+    {
+        $leader = Employee::where('employee_index', 'EMP1007')->first()->user;
+        $cic = Stream::where('code', Stream::CODE_CIC)->first();
+
+        $draft = Project::create([
+            'stream_id' => $cic->id,
+            'title' => 'Draft Inovasi Baru',
+            'status' => 'draft',
+            'leader_employee_id' => $leader->employee_id,
+        ]);
+
+        $response = $this->actingAs($leader)->get("/participant/projects/create?draft_id={$draft->id}");
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('Participant/Projects/RegisterWizard')
+            ->where('draftProject.id', $draft->id)
+            ->where('draftProject.title', 'Draft Inovasi Baru')
+        );
+    }
 }

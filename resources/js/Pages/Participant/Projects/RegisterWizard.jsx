@@ -27,34 +27,59 @@ import {
     Film,
 } from 'lucide-react';
 
-export default function RegisterWizard({ activeEvent, streams, currentEmployee }) {
+export default function RegisterWizard({ activeEvent, streams, currentEmployee, draftProject = null }) {
     const [step, setStep] = useState(0); // 0 to 5 (6 steps)
-    const [projectId, setProjectId] = useState(null);
-    const [autosaveStatus, setAutosaveStatus] = useState('Draft belum disimpan');
+    const [projectId, setProjectId] = useState(draftProject?.id || null);
+    const [autosaveStatus, setAutosaveStatus] = useState(
+        draftProject ? 'Draft berhasil dimuat' : 'Draft belum disimpan'
+    );
     const [isSavingDraft, setIsSavingDraft] = useState(false);
 
     // Wizard Form Data
-    const [selectedStreamId, setSelectedStreamId] = useState(streams?.[0]?.id || null);
-    const [teamMembers, setTeamMembers] = useState([]); // array of employee objects
-    const [categoryOptions, setCategoryOptions] = useState({}); // { [dimensionId]: optionId }
+    const [selectedStreamId, setSelectedStreamId] = useState(
+        draftProject?.stream_id || streams?.[0]?.id || null
+    );
+
+    // Initial team members from draft (excluding leader)
+    const initialTeamMembers = React.useMemo(() => {
+        if (!draftProject?.team_members) return [];
+        return draftProject.team_members
+            .filter((tm) => tm.member_role !== 'leader' && tm.employee)
+            .map((tm) => tm.employee);
+    }, [draftProject]);
+    const [teamMembers, setTeamMembers] = useState(initialTeamMembers);
+
+    // Initial category options from draft
+    const initialCategoryOptions = React.useMemo(() => {
+        if (!draftProject?.categories) return {};
+        const catMap = {};
+        draftProject.categories.forEach((cat) => {
+            catMap[cat.dimension_id] = cat.id;
+        });
+        return catMap;
+    }, [draftProject]);
+    const [categoryOptions, setCategoryOptions] = useState(initialCategoryOptions);
+
+    const draftCharter = draftProject?.current_version;
     const [charter, setCharter] = useState({
-        title: '',
-        executive_summary: '',
-        problem_statement: '',
-        goal_statement: '',
-        milestones: [
+        title: draftCharter?.title || draftProject?.title || '',
+        executive_summary: draftCharter?.executive_summary || '',
+        problem_statement: draftCharter?.problem_statement || '',
+        goal_statement: draftCharter?.goal_statement || '',
+        milestones: draftCharter?.milestones?.length ? draftCharter.milestones : [
             { milestone: 'Identifikasi Masalah & Pengumpulan Data Awal', target_date: '', pic: currentEmployee?.full_name || '', status: 'Done' },
             { milestone: 'Analisis Akar Masalah (Root Cause Analysis)', target_date: '', pic: currentEmployee?.full_name || '', status: 'In Progress' },
         ],
-        initiatives: [
+        initiatives: draftCharter?.initiatives?.length ? draftCharter.initiatives : [
             { initiative: 'Inisiatif Utama Perbaikan', description: 'Deskripsi inisiatif implementasi di lapangan' },
         ],
-        results: [
+        results: draftCharter?.results?.length ? draftCharter.results : [
             { metric_name: 'Efisiensi Operasional', unit: '%', baseline: '100', target: '120', actual: '118', narrative: 'Peningkatan efisiensi' },
         ],
     });
     const [uploadedFiles, setUploadedFiles] = useState([]);
-    const [externalVideoUrl, setExternalVideoUrl] = useState('');
+    const initialVideo = draftProject?.files?.find((f) => f.file_category === 'final_video');
+    const [externalVideoUrl, setExternalVideoUrl] = useState(initialVideo?.external_url || '');
     const [agreeOriginality, setAgreeOriginality] = useState(false);
     const [submitErrors, setSubmitErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -283,9 +308,16 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee }
             header={
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-                            Registrasi Tim & Project Charter
-                        </h1>
+                        <div className="flex items-center gap-2.5">
+                            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+                                Registrasi Tim & Project Charter
+                            </h1>
+                            {draftProject && (
+                                <span className="text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full border border-amber-200">
+                                    Melanjutkan Draft
+                                </span>
+                            )}
+                        </div>
                         <p className="text-sm text-slate-500 mt-1">
                             Bulan Mutu GGF 2026 · Wizard Pendaftaran 6 Langkah
                         </p>

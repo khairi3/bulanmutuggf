@@ -85,10 +85,28 @@ class ParticipantProjectController extends Controller
 
         $user = $request->user();
 
+        $draftProject = null;
+        $draftId = $request->query('draft_id');
+        if ($draftId) {
+            $draftProject = Project::with([
+                'categories',
+                'currentVersion',
+                'teamMembers.employee',
+                'files',
+            ])->where('id', $draftId)
+                ->where('status', Project::STATUS_DRAFT)
+                ->first();
+
+            if ($draftProject && $user->employee_id && ! $draftProject->isMember($user->employee_id)) {
+                $draftProject = null;
+            }
+        }
+
         return Inertia::render('Participant/Projects/RegisterWizard', [
             'activeEvent' => $activeEvent,
             'streams' => $streams,
             'currentEmployee' => $user->employee,
+            'draftProject' => $draftProject,
         ]);
     }
 

@@ -152,12 +152,28 @@ export default function ParticipantDashboard({ projects = [], activeEvent }) {
                                             <span className="text-xs text-slate-400">
                                                 Versi Charter: <strong className="text-slate-600">v{proj.current_version?.version_no || 1}</strong>
                                             </span>
-                                            <Link href={`/participant/projects/${proj.id}`}>
-                                                <Button size="sm" variant="outline">
-                                                    <span>Buka Project</span>
-                                                    <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                                                </Button>
-                                            </Link>
+                                            {proj.status === 'draft' ? (
+                                                <div className="flex items-center gap-1.5">
+                                                    <Link href={`/participant/projects/${proj.id}`}>
+                                                        <Button size="sm" variant="outline">
+                                                            <span>Detail</span>
+                                                        </Button>
+                                                    </Link>
+                                                    <Link href={`/participant/projects/create?draft_id=${proj.id}`}>
+                                                        <Button size="sm" variant="primary">
+                                                            <span>Lanjutkan Draft</span>
+                                                            <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                                                        </Button>
+                                                    </Link>
+                                                </div>
+                                            ) : (
+                                                <Link href={`/participant/projects/${proj.id}`}>
+                                                    <Button size="sm" variant="outline">
+                                                        <span>Buka Project</span>
+                                                        <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                                                    </Button>
+                                                </Link>
+                                            )}
                                         </div>
                                     </div>
                                 );

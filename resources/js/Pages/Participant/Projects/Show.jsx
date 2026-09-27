@@ -98,8 +98,8 @@ export default function ProjectShow({ project }) {
 
     const handleFinalise = (e) => {
         e.preventDefault();
-        if (finaliseCodeInput.trim() !== project.registration_code.trim()) {
-            setFinaliseError(`Kode konfirmasi salah. Harap ketik persis sama: ${project.registration_code}`);
+        if (!project.registration_code || finaliseCodeInput.trim() !== (project.registration_code || '').trim()) {
+            setFinaliseError(`Kode konfirmasi salah. Harap ketik persis sama: ${project.registration_code || ''}`);
             return;
         }
         if (!presentationFile) {
@@ -182,14 +182,25 @@ export default function ProjectShow({ project }) {
 
                         {!project.is_locked && project.status !== 'finalised' && (
                             <div className="flex items-center gap-2">
-                                <Button variant="secondary" onClick={() => setIsUploadModalOpen(true)}>
-                                    <UploadCloud className="w-4 h-4 mr-2" />
-                                    <span>Unggah Berkas</span>
-                                </Button>
-                                <Button variant="primary" onClick={() => setIsEditCharterModalOpen(true)}>
-                                    <Edit3 className="w-4 h-4 mr-2" />
-                                    <span>Update Charter (Versi Baru)</span>
-                                </Button>
+                                {project.status === 'draft' ? (
+                                    <Link href={`/participant/projects/create?draft_id=${project.id}`}>
+                                        <Button variant="primary">
+                                            <Edit3 className="w-4 h-4 mr-2" />
+                                            <span>Lanjutkan Pendaftaran Draft</span>
+                                        </Button>
+                                    </Link>
+                                ) : (
+                                    <>
+                                        <Button variant="secondary" onClick={() => setIsUploadModalOpen(true)}>
+                                            <UploadCloud className="w-4 h-4 mr-2" />
+                                            <span>Unggah Berkas</span>
+                                        </Button>
+                                        <Button variant="primary" onClick={() => setIsEditCharterModalOpen(true)}>
+                                            <Edit3 className="w-4 h-4 mr-2" />
+                                            <span>Update Charter (Versi Baru)</span>
+                                        </Button>
+                                    </>
+                                )}
                             </div>
                         )}
                     </div>
@@ -199,6 +210,30 @@ export default function ProjectShow({ project }) {
             <Head title={`${project.registration_code || 'Project'} - ${project.title}`} />
 
             <div className="space-y-6">
+                {/* DRAFT NOTIFICATION BANNER */}
+                {project.status === 'draft' && (
+                    <div className="bg-amber-50 border border-amber-300 rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+                                <AlertTriangle className="w-5 h-5 text-amber-700" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-amber-900 text-sm">Project ini Masih Berstatus Draft</h3>
+                                <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                                    Pendaftaran project inovasi ini belum disubmit. Anda dapat melanjutkan pengisian data formulir untuk mendapatkan nomor registrasi resmi.
+                                </p>
+                            </div>
+                        </div>
+                        <Link
+                            href={`/participant/projects/create?draft_id=${project.id}`}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition whitespace-nowrap self-start sm:self-auto"
+                        >
+                            <span>Lanjutkan Pendaftaran</span>
+                            <ArrowRight className="w-4 h-4" />
+                        </Link>
+                    </div>
+                )}
+
                 {/* 1. Status Stepper */}
                 <Card className="py-2 px-4">
                     <Stepper steps={stateSteps} currentStep={getStatusIndex(project.status)} />
@@ -324,7 +359,7 @@ export default function ProjectShow({ project }) {
                     <div className="space-y-6">
                         <Card
                             title="Ringkasan Eksekutif (Executive Summary)"
-                            subtitle={`Versi ${currentVersion?.version_no} · Diperbarui pada ${new Date(currentVersion?.created_at).toLocaleDateString('id-ID')}`}
+                            subtitle={`Versi ${currentVersion?.version_no || 1} · Diperbarui pada ${currentVersion?.created_at ? new Date(currentVersion.created_at).toLocaleDateString('id-ID') : '-'}`}
                         >
                             <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
                                 {currentVersion?.executive_summary || 'Belum diisi.'}
@@ -878,7 +913,7 @@ export default function ProjectShow({ project }) {
                         <Button
                             variant="primary"
                             loading={isFinalising}
-                            disabled={finaliseCodeInput.trim() !== project.registration_code.trim()}
+                            disabled={!project.registration_code || finaliseCodeInput.trim() !== (project.registration_code || '').trim()}
                             onClick={handleFinalise}
                         >
                             Konfirmasi & Kunci Permanen
@@ -910,11 +945,11 @@ export default function ProjectShow({ project }) {
                             Ketikkan persis kode registrasi berikut untuk konfirmasi:
                         </label>
                         <div className="font-mono text-sm font-black bg-slate-100 p-2.5 rounded-xl border border-slate-200 text-slate-800 text-center select-all">
-                            {project.registration_code}
+                            {project.registration_code || '-'}
                         </div>
                         <input
                             type="text"
-                            placeholder={`Ketik: ${project.registration_code}`}
+                            placeholder={project.registration_code ? `Ketik: ${project.registration_code}` : ''}
                             value={finaliseCodeInput}
                             onChange={(e) => {
                                 setFinaliseCodeInput(e.target.value);
