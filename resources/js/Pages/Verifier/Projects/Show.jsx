@@ -122,11 +122,13 @@ export default function VerifierProjectShow({
     const handleSendFeedback = (statusType) => {
         feedbackForm.transform((data) => ({
             ...data,
+            charter_section: data.charter_section || null,
             status: statusType,
-        })).post(`/verifier/projects/${project.id}/feedback`, {
+        }));
+        feedbackForm.post(`/verifier/projects/${project.id}/feedback`, {
             preserveScroll: true,
             onSuccess: () => {
-                feedbackForm.reset();
+                feedbackForm.reset('body', 'charter_section');
             },
         });
     };
@@ -662,6 +664,7 @@ export default function VerifierProjectShow({
                                     feedbacks={feedbacks}
                                     isParticipant={false}
                                     projectId={project.id}
+                                    onDelete={handleDeleteFeedback}
                                 />
                             </Card>
                         </div>

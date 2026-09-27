@@ -8,10 +8,11 @@ import {
     CheckCheck,
     Clock,
     User,
-    RotateCcw
+    RotateCcw,
+    Trash2
 } from 'lucide-react';
 
-export default function FeedbackThread({ feedbacks = [], isParticipant = true, projectId }) {
+export default function FeedbackThread({ feedbacks = [], isParticipant = true, projectId, onDelete }) {
     const [replyingToId, setReplyingToId] = useState(null);
     const [replyText, setReplyText] = useState('');
     const [isSubmittingReply, setIsSubmittingReply] = useState(false);
@@ -103,6 +104,12 @@ export default function FeedbackThread({ feedbacks = [], isParticipant = true, p
                                     </span>
                                 )
                             )}
+                            {fb.status === 'draft' && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                    Draf (Belum Terkirim)
+                                </span>
+                            )}
                         </div>
 
                         <span className="text-[11px] text-slate-400 font-mono">
@@ -141,6 +148,18 @@ export default function FeedbackThread({ feedbacks = [], isParticipant = true, p
                                 >
                                     <CheckCheck className="w-3.5 h-3.5 text-slate-400" />
                                     <span>Tandai Dibaca</span>
+                                </button>
+                            )}
+
+                            {!isParticipant && onDelete && (
+                                <button
+                                    type="button"
+                                    onClick={() => onDelete(fb.id)}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 transition"
+                                    title="Hapus catatan ini"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                    <span>Hapus</span>
                                 </button>
                             )}
                         </div>
