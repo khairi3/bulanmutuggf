@@ -121,6 +121,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/projects/{project}/charter', [ParticipantProjectController::class, 'updateCharter'])->name('projects.charter.update');
         Route::post('/projects/{project}/files', [ParticipantProjectController::class, 'uploadFile'])->name('projects.files.upload');
         Route::get('/projects/{project}/files/{file}/download', [ParticipantProjectController::class, 'downloadFile'])->name('projects.files.download');
+        Route::get('/projects/{project}/files/{file}/preview/{asset?}', [ParticipantProjectController::class, 'previewFile'])->where('asset', '.*')->name('projects.files.preview');
         Route::post('/feedback/{feedback}/read', [ParticipantProjectController::class, 'markFeedbackRead'])->name('feedback.read');
         Route::post('/feedback/{feedback}/reply', [ParticipantProjectController::class, 'replyFeedback'])->name('feedback.reply');
         Route::post('/feedback/{feedback}/resolve', [ParticipantProjectController::class, 'resolveFeedback'])->name('feedback.resolve');
@@ -136,6 +137,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/projects/{project}/visits', [VerifierController::class, 'storeVisit'])->name('projects.visits.store');
         Route::post('/projects/{project}/score', [VerifierController::class, 'saveScore'])->name('projects.score.save');
         Route::get('/projects/{project}/files/{file}/download', [VerifierController::class, 'downloadFile'])->name('projects.files.download');
+        Route::get('/projects/{project}/files/{file}/preview/{asset?}', [ParticipantProjectController::class, 'previewFile'])->where('asset', '.*')->name('projects.files.preview');
         Route::get('/selection', [SelectionController::class, 'index'])->name('selection.index');
         Route::post('/selection/draft', [SelectionController::class, 'storeDraft'])->name('selection.draft');
         Route::post('/streams/{stream}/selection/publish', [SelectionController::class, 'publish'])->name('selection.publish');
@@ -149,6 +151,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/projects/{project}', [JudgeController::class, 'show'])->name('projects.show');
         Route::post('/projects/{project}/score', [JudgeController::class, 'saveScore'])->name('projects.score.save');
         Route::get('/projects/{project}/files/{file}/download', [ParticipantProjectController::class, 'downloadFile'])->name('projects.files.download');
+        Route::get('/projects/{project}/files/{file}/preview/{asset?}', [ParticipantProjectController::class, 'previewFile'])->where('asset', '.*')->name('projects.files.preview');
     });
 
     // Viewer Management Area (Phase 6)

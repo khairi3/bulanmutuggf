@@ -278,6 +278,17 @@ class ParticipantProjectTest extends TestCase
         $downloadResponse = $this->actingAs($leader)->get("/participant/projects/{$project->id}/files/{$projectFile->id}/download");
         $downloadResponse->assertStatus(200);
 
+        // Leader can preview file inline without forcing download
+        $previewResponse = $this->actingAs($leader)->get("/participant/projects/{$project->id}/files/{$projectFile->id}/preview");
+        $previewResponse->assertStatus(200);
+        $previewResponse->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringContainsString('inline', $previewResponse->headers->get('Content-Disposition') ?? '');
+
+        // Test ?inline=1 query parameter on download route
+        $inlineDownloadResponse = $this->actingAs($leader)->get("/participant/projects/{$project->id}/files/{$projectFile->id}/download?inline=1");
+        $inlineDownloadResponse->assertStatus(200);
+        $this->assertStringContainsString('inline', $inlineDownloadResponse->headers->get('Content-Disposition') ?? '');
+
         // Unauthorized participant (EMP1010 not in team) is blocked with 403
         $otherParticipant = Employee::where('employee_index', 'EMP1010')->first()->user;
         $forbiddenResponse = $this->actingAs($otherParticipant)->get("/participant/projects/{$project->id}/files/{$projectFile->id}/download");

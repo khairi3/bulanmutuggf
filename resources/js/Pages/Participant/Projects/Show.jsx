@@ -30,6 +30,7 @@ import {
     AlertTriangle,
     Send,
     Video,
+    Eye,
 } from 'lucide-react';
 
 export default function ProjectShow({ project }) {
@@ -494,15 +495,29 @@ export default function ProjectShow({ project }) {
                                             </div>
                                         </div>
 
-                                        <a
-                                            href={`/participant/projects/${project.id}/files/${file.id}/download`}
-                                            target={file.external_url ? '_blank' : '_self'}
-                                            rel="noreferrer"
-                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
-                                        >
-                                            {file.external_url ? <ExternalLink className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
-                                            <span>{file.external_url ? 'Buka Tautan' : 'Unduh'}</span>
-                                        </a>
+                                        <div className="flex items-center gap-2">
+                                            {!file.external_url && (
+                                                <a
+                                                    href={`/participant/projects/${project.id}/files/${file.id}/preview`}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-200 text-xs font-bold text-purple-700 hover:bg-purple-50 transition-colors"
+                                                    title="Pratinjau langsung di peramban"
+                                                >
+                                                    <Eye className="w-3.5 h-3.5" />
+                                                    <span>Pratinjau</span>
+                                                </a>
+                                            )}
+                                            <a
+                                                href={`/participant/projects/${project.id}/files/${file.id}/download`}
+                                                target={file.external_url ? '_blank' : '_self'}
+                                                rel="noreferrer"
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                                            >
+                                                {file.external_url ? <ExternalLink className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
+                                                <span>{file.external_url ? 'Buka Tautan' : 'Unduh'}</span>
+                                            </a>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -650,20 +665,36 @@ export default function ProjectShow({ project }) {
                                         <p className="font-bold text-xs text-slate-800 truncate">{presentationFile.original_name}</p>
                                         <div className="flex items-center justify-between text-[11px] text-slate-500">
                                             <span>{presentationFile.size_bytes ? (presentationFile.size_bytes / (1024 * 1024)).toFixed(2) + ' MB' : '-'}</span>
-                                            <a
-                                                href={`/participant/projects/${project.id}/files/${presentationFile.id}/download`}
-                                                className="text-emerald-700 font-bold hover:underline inline-flex items-center gap-1"
-                                                target="_blank"
-                                                rel="noreferrer"
-                                            >
-                                                <Download className="w-3 h-3" /> Unduh
-                                            </a>
+                                            <div className="flex items-center gap-3">
+                                                <a
+                                                    href={`/participant/projects/${project.id}/files/${presentationFile.id}/preview`}
+                                                    className="text-purple-700 font-bold hover:underline inline-flex items-center gap-1"
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                >
+                                                    <Eye className="w-3.5 h-3.5" /> Pratinjau Web
+                                                </a>
+                                                <span className="text-slate-300">|</span>
+                                                <a
+                                                    href={`/participant/projects/${project.id}/files/${presentationFile.id}/download`}
+                                                    className="text-emerald-700 font-bold hover:underline inline-flex items-center gap-1"
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                >
+                                                    <Download className="w-3 h-3" /> Unduh
+                                                </a>
+                                            </div>
                                         </div>
                                     </div>
                                 ) : (
-                                    <p className="text-xs text-slate-500 italic bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                                        Belum ada dokumen presentasi PDF yang diunggah.
-                                    </p>
+                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1">
+                                        <p className="text-xs text-slate-500 italic">
+                                            Belum ada dokumen materi presentasi final yang diunggah.
+                                        </p>
+                                        <p className="text-[11px] text-purple-600 font-medium">
+                                            💡 Format PDF sangat disarankan untuk tampilan presentasi interaktif langsung di layar juri.
+                                        </p>
+                                    </div>
                                 )}
 
                                 {!project.is_locked && (

@@ -603,12 +603,23 @@ export default function VerifierProjectShow({
                                                         </span>
                                                     </div>
                                                 </div>
-                                                <a
-                                                    href={`/verifier/projects/${project.id}/files/${file.id}/download`}
-                                                    className="px-2 py-1 rounded bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 font-bold text-[11px] transition-colors shrink-0"
-                                                >
-                                                    Unduh
-                                                </a>
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                    <a
+                                                        href={`/verifier/projects/${project.id}/files/${file.id}/preview`}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="px-2 py-1 rounded bg-purple-50 hover:bg-purple-600 hover:text-white text-purple-700 font-bold text-[11px] transition-colors"
+                                                        title="Pratinjau langsung di peramban"
+                                                    >
+                                                        Pratinjau
+                                                    </a>
+                                                    <a
+                                                        href={`/verifier/projects/${project.id}/files/${file.id}/download`}
+                                                        className="px-2 py-1 rounded bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 font-bold text-[11px] transition-colors"
+                                                    >
+                                                        Unduh
+                                                    </a>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>

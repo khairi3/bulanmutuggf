@@ -24,7 +24,6 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ParticipantProjectController extends Controller
 {
@@ -645,7 +644,29 @@ class ParticipantProjectController extends Controller
     /**
      * Secure file download via policy (Task 3.7).
      */
-    public function downloadFile(Request $request, Project $project, ProjectFile $file): StreamedResponse|RedirectResponse
+    public function downloadFile(Request $request, Project $project, ProjectFile $file): mixed
+    {
+        $this->authorize('downloadFile', [$project, $file]);
+
+        if ($request->boolean('inline') || $request->has('preview')) {
+            return $this->previewFile($request, $project, $file);
+        }
+
+        if ($file->external_url) {
+            return redirect()->away($file->external_url);
+        }
+
+        if (! Storage::exists($file->storage_path)) {
+            abort(404, 'Berkas tidak ditemukan di server.');
+        }
+
+        return Storage::download($file->storage_path, $file->original_name);
+    }
+
+    /**
+     * Preview presentation / document / image inline in browser without downloading (Task JUR-03).
+     */
+    public function previewFile(Request $request, Project $project, ProjectFile $file, ?string $asset = null): mixed
     {
         $this->authorize('downloadFile', [$project, $file]);
 
@@ -657,7 +678,130 @@ class ParticipantProjectController extends Controller
             abort(404, 'Berkas tidak ditemukan di server.');
         }
 
-        return Storage::download($file->storage_path, $file->original_name);
+        $realPath = Storage::path($file->storage_path);
+        $extension = strtolower(pathinfo($file->original_name, PATHINFO_EXTENSION));
+        $mimeType = $file->mime_type ?: Storage::mimeType($file->storage_path);
+
+        // 1. PDF files: direct inline rendering with native browser PDF viewer
+        if ($extension === 'pdf' || $mimeType === 'application/pdf') {
+            return response()->file($realPath, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="'.addslashes($file->original_name).'"',
+                'Cache-Control' => 'public, max-age=3600',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+        }
+
+        // 2. Images and video media: stream inline
+        if (str_starts_with($mimeType, 'image/') || str_starts_with($mimeType, 'video/')) {
+            return response()->file($realPath, [
+                'Content-Type' => $mimeType,
+                'Content-Disposition' => 'inline; filename="'.addslashes($file->original_name).'"',
+                'Accept-Ranges' => 'bytes',
+            ]);
+        }
+
+        // 3. PPTX / PPT / Office Presentation files
+        if (in_array($extension, ['pptx', 'ppt', 'ppsx', 'odp'])) {
+            $cacheDir = storage_path('app/preview_cache/'.$file->id);
+            $qlDir = $cacheDir.'/'.pathinfo($realPath, PATHINFO_BASENAME).'.qlpreview';
+
+            // Serve asset inside cached preview (e.g. Attachment1.png)
+            if ($asset) {
+                $assetPath = $qlDir.'/'.$asset;
+                if (file_exists($assetPath)) {
+                    $assetMime = match (strtolower(pathinfo($asset, PATHINFO_EXTENSION))) {
+                        'png' => 'image/png',
+                        'jpg', 'jpeg' => 'image/jpeg',
+                        'gif' => 'image/gif',
+                        'svg' => 'image/svg+xml',
+                        'pdf' => 'application/pdf',
+                        default => 'application/octet-stream',
+                    };
+
+                    return response()->file($assetPath, [
+                        'Content-Type' => $assetMime,
+                        'Content-Disposition' => 'inline',
+                        'Cache-Control' => 'public, max-age=86400',
+                    ]);
+                }
+                abort(404, 'Asset pratinjau tidak ditemukan.');
+            }
+
+            // Generate QuickLook HTML preview if not yet cached (macOS)
+            if (! file_exists($qlDir.'/Preview.html')) {
+                if (! is_dir($cacheDir)) {
+                    mkdir($cacheDir, 0755, true);
+                }
+                if (file_exists('/usr/bin/qlmanage')) {
+                    exec('/usr/bin/qlmanage -p -o '.escapeshellarg($cacheDir).' '.escapeshellarg($realPath).' 2>&1');
+                    // Convert vector PDFs to PNG with sips for standard browser compatibility
+                    if (is_dir($qlDir) && file_exists('/usr/bin/sips')) {
+                        $pdfFiles = glob($qlDir.'/*.pdf') ?: [];
+                        foreach ($pdfFiles as $pdf) {
+                            $png = substr($pdf, 0, -4).'.png';
+                            exec('/usr/bin/sips -s format png '.escapeshellarg($pdf).' --out '.escapeshellarg($png).' > /dev/null 2>&1');
+                        }
+                    }
+                }
+            }
+
+            if (file_exists($qlDir.'/Preview.html')) {
+                $html = file_get_contents($qlDir.'/Preview.html');
+
+                // Swap PDF images to PNG if converted
+                $html = preg_replace_callback('/src="([^"]+)\.pdf"/i', function ($matches) use ($qlDir) {
+                    $pngFile = $matches[1].'.png';
+                    if (file_exists($qlDir.'/'.$pngFile)) {
+                        return 'src="'.$pngFile.'"';
+                    }
+
+                    return $matches[0];
+                }, $html);
+
+                // Set base URL for relative assets
+                $baseUrl = url($request->path());
+                if (! str_ends_with($baseUrl, '/')) {
+                    $baseUrl .= '/';
+                }
+
+                $deckEnhancement = '
+                <base href="'.htmlspecialchars($baseUrl).'">
+                <style>
+                    html, body {
+                        background-color: #0b1120 !important;
+                        margin: 0;
+                        padding: 24px 16px 40px;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 24px;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                    }
+                    div.slide {
+                        margin: 0 auto !important;
+                        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.6) !important;
+                        border-radius: 10px !important;
+                        overflow: hidden !important;
+                        background-color: #ffffff !important;
+                        transition: transform 0.2s ease, box-shadow 0.2s ease;
+                    }
+                </style>';
+
+                $html = str_replace('<head>', '<head>'.$deckEnhancement, $html);
+
+                return response($html, 200, [
+                    'Content-Type' => 'text/html; charset=utf-8',
+                    'Content-Disposition' => 'inline',
+                ]);
+            }
+        }
+
+        // Fallback: serve inline file
+        return response()->file($realPath, [
+            'Content-Type' => $mimeType ?: 'application/octet-stream',
+            'Content-Disposition' => 'inline; filename="'.addslashes($file->original_name).'"',
+        ]);
     }
 
     /**

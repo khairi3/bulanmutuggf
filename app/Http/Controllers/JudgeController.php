@@ -119,8 +119,23 @@ class JudgeController extends Controller
         ]);
 
         // Materials for presentation & video
-        $presentationFile = $project->files->where('file_category', 'final_presentation')->first();
-        $videoFile = $project->files->where('file_category', 'final_video')->first();
+        $presentationFile = $project->files->firstWhere('file_category', 'final_presentation');
+        if (! $presentationFile) {
+            $presentationFile = $project->files->first(function ($f) {
+                $ext = strtolower(pathinfo($f->original_name, PATHINFO_EXTENSION));
+
+                return in_array($ext, ['pdf', 'pptx', 'ppt', 'ppsx', 'odp']);
+            });
+        }
+
+        $videoFile = $project->files->firstWhere('file_category', 'final_video');
+        if (! $videoFile) {
+            $videoFile = $project->files->first(function ($f) {
+                $ext = strtolower(pathinfo($f->original_name, PATHINFO_EXTENSION));
+
+                return in_array($ext, ['mp4', 'mov', 'webm', 'm4v']) || $f->external_url;
+            });
+        }
 
         // Dynamic scoring parameters for judging stage
         $scoringParameters = $project->stream->stageParameters(ScoringParameter::STAGE_JUDGING);
