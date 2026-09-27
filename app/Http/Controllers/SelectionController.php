@@ -64,20 +64,30 @@ class SelectionController extends Controller
     }
 
     /**
-     * Admin Publikasi Hasil Seleksi Resmi (ADM-03, NOT-05, VER-10).
+     * Finalise & Publikasikan Hasil Seleksi Resmi (ADM-03, NOT-05, VER-10).
      */
     public function publish(Request $request, Stream $stream): RedirectResponse
     {
         $user = $request->user();
-        if (! $user->hasRole('admin')) {
-            abort(403, 'Hanya Administrator yang memiliki wewenang mempublikasikan hasil seleksi.');
+        if (! $user->hasRole(['admin', 'verifier'])) {
+            abort(403, 'Hanya Administrator atau Verifikator yang memiliki wewenang memfinalisasi hasil seleksi.');
+        }
+
+        // Simpan keputusan seleksi yang tercentang jika dikirimkan bersama form finalisasi
+        if ($request->has('project_ids')) {
+            $this->selectionService->saveDecisions(
+                $stream,
+                $request->input('project_ids', []),
+                $request->input('qualified_ids', []),
+                $user
+            );
         }
 
         $result = $this->selectionService->publish($stream, $user);
 
         return back()->with(
             'success',
-            "Hasil seleksi {$stream->name} berhasil dipublikasikan: {$result['qualified']} tim Lolos Convention Day, {$result['unqualified']} tim Tidak Lolos. Notifikasi telah dikirimkan ke seluruh tim peserta."
+            "Seleksi {$stream->name} berhasil difinalisasi! Sebanyak {$result['qualified']} tim dinyatakan Lolos Convention Day dan telah masuk ke Dashboard Juri untuk penilaian."
         );
     }
 

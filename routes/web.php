@@ -138,6 +138,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/projects/{project}/files/{file}/download', [VerifierController::class, 'downloadFile'])->name('projects.files.download');
         Route::get('/selection', [SelectionController::class, 'index'])->name('selection.index');
         Route::post('/selection/draft', [SelectionController::class, 'storeDraft'])->name('selection.draft');
+        Route::post('/streams/{stream}/selection/publish', [SelectionController::class, 'publish'])->name('selection.publish');
         Route::get('/recap', [RecapController::class, 'index'])->name('recap.index');
         Route::get('/export', [RecapController::class, 'export'])->name('export');
     });

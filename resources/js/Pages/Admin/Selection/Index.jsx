@@ -20,6 +20,7 @@ import {
 export default function SelectionIndex({ streams = [], selectedStream, rankings = [], isPublished, publishedAt }) {
     const { auth } = usePage().props;
     const isAdmin = auth.user?.roles?.some(r => r.name === 'admin' || r.code === 'admin');
+    const canFinalise = auth.user?.roles?.some(r => ['admin', 'verifier'].includes(r.code || r.name));
 
     // Local state for draft decisions (checked = qualified)
     // Initialize from rankings data
@@ -92,9 +93,16 @@ export default function SelectionIndex({ streams = [], selectedStream, rankings 
     };
 
     const handlePublish = () => {
-        if (!isAdmin) return;
+        if (!canFinalise) return;
         setIsPublishing(true);
-        router.post(`/admin/streams/${selectedStream.id}/selection/publish`, {}, {
+        const url = isAdmin
+            ? `/admin/streams/${selectedStream.id}/selection/publish`
+            : `/verifier/streams/${selectedStream.id}/selection/publish`;
+
+        router.post(url, {
+            project_ids: allProjectIds,
+            qualified_ids: qualifiedIds,
+        }, {
             preserveScroll: true,
             onFinish: () => {
                 setIsPublishing(false);
@@ -174,26 +182,28 @@ export default function SelectionIndex({ streams = [], selectedStream, rankings 
                     {/* Action buttons */}
                     <div className="flex items-center gap-2">
                         {!isPublished && (
-                            <button
-                                type="button"
-                                onClick={handleSaveDraft}
-                                disabled={isSavingDraft}
-                                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 font-bold text-sm shadow-sm transition disabled:opacity-50"
-                            >
-                                <Save className="w-4 h-4 text-slate-500" />
-                                {isSavingDraft ? 'Menyimpan...' : 'Simpan Draf'}
-                            </button>
-                        )}
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={handleSaveDraft}
+                                    disabled={isSavingDraft}
+                                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 font-bold text-sm shadow-xs transition disabled:opacity-50"
+                                >
+                                    <Save className="w-4 h-4 text-slate-500" />
+                                    {isSavingDraft ? 'Menyimpan...' : 'Simpan Draf'}
+                                </button>
 
-                        {isAdmin && !isPublished && (
-                            <button
-                                type="button"
-                                onClick={() => setPublishConfirmModal(true)}
-                                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-bold text-sm shadow-md shadow-emerald-600/20 transition"
-                            >
-                                <Send className="w-4 h-4" />
-                                Publikasikan Seleksi
-                            </button>
+                                {canFinalise && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setPublishConfirmModal(true)}
+                                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-bold text-sm shadow-md shadow-emerald-600/20 transition cursor-pointer"
+                                    >
+                                        <CheckCircle2 className="w-4 h-4" />
+                                        <span>Finalise & Kirim ke Juri</span>
+                                    </button>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
@@ -485,48 +495,139 @@ export default function SelectionIndex({ streams = [], selectedStream, rankings 
                 )}
             </div>
 
-            {/* CONFIRM PUBLISH MODAL */}
+            {/* CONFIRM PUBLISH & FINALISE MODAL */}
             {publishConfirmModal && (
-                <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-                        <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
-                            <Send className="w-6 h-6" />
+                <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 my-8">
+                        <div className="flex items-start gap-3.5">
+                            <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                                <Award className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-slate-900 leading-snug">
+                                    Konfirmasi Finalisasi & Kirim ke Dashboard Juri
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Stream: <strong className="text-slate-800">{selectedStream?.name}</strong>
+                                </p>
+                            </div>
                         </div>
-                        <div className="text-center">
-                            <h3 className="text-lg font-black text-slate-900">Publikasikan Hasil Seleksi Resmi?</h3>
-                            <p className="text-sm text-slate-600 mt-2">
-                                Setelah dipublikasikan:
-                            </p>
-                            <ul className="text-left text-xs text-slate-600 bg-slate-50 p-3 rounded-xl mt-3 space-y-1.5 border border-slate-200">
-                                <li className="flex items-start gap-1.5">
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                                    <span>Status project lolos ({totalSelected} tim) berubah menjadi <strong>Qualified</strong>.</span>
+
+                        {/* Summary Metrics */}
+                        <div className="grid grid-cols-3 gap-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-center">
+                            <div>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">Terverifikasi</span>
+                                <p className="text-lg font-black text-slate-800">{totalProjects}</p>
+                            </div>
+                            <div className="border-x border-slate-200">
+                                <span className="text-[10px] font-bold text-emerald-600 uppercase">Lolos Finalis</span>
+                                <p className="text-lg font-black text-emerald-700">{totalSelected}</p>
+                            </div>
+                            <div>
+                                <span className="text-[10px] font-bold text-rose-500 uppercase">Tidak Lolos</span>
+                                <p className="text-lg font-black text-rose-600">{totalProjects - totalSelected}</p>
+                            </div>
+                        </div>
+
+                        {/* Breakdown per Kategori */}
+                        <div>
+                            <h4 className="text-xs font-bold text-slate-700 mb-2 flex items-center justify-between">
+                                <span>Rangkuman Project per Kategori:</span>
+                                <span className="text-[11px] font-semibold text-slate-400">Total {rankings.length} Kategori</span>
+                            </h4>
+                            <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+                                {rankings.map((group, idx) => {
+                                    const selectedCount = group.projects.filter(p => qualifiedIds.includes(p.id)).length;
+                                    const isExceeded = group.quota && selectedCount > group.quota;
+                                    const isZero = selectedCount === 0;
+
+                                    return (
+                                        <div key={idx} className="p-3 flex items-center justify-between gap-3 text-xs">
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="font-bold text-slate-800 truncate">
+                                                        {group.option?.name || 'Tanpa Kategori'}
+                                                    </span>
+                                                    {group.option?.abbreviation && (
+                                                        <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-bold">
+                                                            {group.option.abbreviation}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-[11px] text-slate-400 mt-0.5">
+                                                    Kuota: {group.quota ? `${group.quota} tim` : 'Fleksibel'} · Dari total {group.projects.length} project
+                                                </p>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <span className="font-black text-sm text-slate-900">
+                                                    {selectedCount} <span className="text-xs font-normal text-slate-500">tim</span>
+                                                </span>
+                                                {isExceeded ? (
+                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">
+                                                        Lebih ({selectedCount - group.quota})
+                                                    </span>
+                                                ) : isZero ? (
+                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500">
+                                                        0 Tim
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                                        Sesuai Kuota
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Information Notes */}
+                        <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-3.5 text-xs text-emerald-900 space-y-1.5">
+                            <div className="flex items-center gap-1.5 font-bold text-emerald-800">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                <span>Alur Setelah Difinalisasi:</span>
+                            </div>
+                            <ul className="list-disc pl-5 space-y-1 text-[11px] text-emerald-800/90 leading-relaxed">
+                                <li>
+                                    Status <strong>{totalSelected} tim terpilih</strong> otomatis berubah menjadi <strong>Qualified (Lolos Convention Day)</strong>.
                                 </li>
-                                <li className="flex items-start gap-1.5">
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                                    <span>Notifikasi resmi otomatis dikirimkan ke email/dashboard peserta (NOT-05).</span>
+                                <li>
+                                    Project yang lolos akan langsung <strong>masuk ke antrean penilaian di Dashboard Juri</strong> untuk dinilai pada Convention Day.
                                 </li>
-                                <li className="flex items-start gap-1.5">
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                                    <span>Keputusan terkunci. Perubahan selanjutnya wajib lewat <strong>Admin Override</strong>.</span>
+                                <li>
+                                    Notifikasi resmi akan otomatis dikirimkan ke seluruh tim peserta terkait status kelolosan mereka.
                                 </li>
                             </ul>
                         </div>
-                        <div className="flex items-center justify-end gap-3 pt-2">
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center justify-end gap-2.5 pt-2">
                             <button
                                 type="button"
                                 onClick={() => setPublishConfirmModal(false)}
-                                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-bold hover:bg-slate-50"
+                                className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50 transition"
                             >
-                                Batal
+                                Batal & Periksa Kembali
                             </button>
                             <button
                                 type="button"
                                 onClick={handlePublish}
-                                disabled={isPublishing}
-                                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-md transition disabled:opacity-50"
+                                disabled={isPublishing || totalSelected === 0}
+                                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white text-xs font-black shadow-md shadow-emerald-600/30 transition disabled:opacity-50 flex items-center gap-2 cursor-pointer"
                             >
-                                {isPublishing ? 'Mempublikasikan...' : 'Ya, Publikasikan Sekarang'}
+                                {isPublishing ? (
+                                    <>
+                                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                        <span>Memproses Finalisasi...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send className="w-4 h-4" />
+                                        <span>Ya, Finalise & Kirim ke Juri Sekarang</span>
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>

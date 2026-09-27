@@ -126,13 +126,38 @@ class SelectionAndJudgingTest extends TestCase
         $this->assertEquals(Project::STATUS_QUALIFIED, $project->status);
     }
 
-    public function test_verifier_cannot_publish_selection(): void
+    public function test_verifier_cannot_publish_selection_via_admin_route(): void
     {
         $response = $this->actingAs($this->verifierUser)
             ->withSession(['active_role' => 'verifier'])
             ->post("/admin/streams/{$this->stream->id}/selection/publish");
 
         $response->assertForbidden();
+    }
+
+    public function test_verifier_can_publish_selection_via_verifier_route(): void
+    {
+        $project = Project::create([
+            'stream_id' => $this->stream->id,
+            'title' => 'Project Selection Verifier',
+            'registration_code' => 'CIC-SEL-003',
+            'status' => Project::STATUS_VERIFIED,
+            'leader_employee_id' => $this->participantUser->employee->id,
+        ]);
+
+        $response = $this->actingAs($this->verifierUser)
+            ->withSession(['active_role' => 'verifier'])
+            ->post("/verifier/streams/{$this->stream->id}/selection/publish", [
+                'project_ids' => [$project->id],
+                'qualified_ids' => [$project->id],
+            ]);
+
+        $response->assertRedirect();
+        $this->stream->refresh();
+        $this->assertTrue($this->stream->isSelectionPublished());
+
+        $project->refresh();
+        $this->assertEquals(Project::STATUS_QUALIFIED, $project->status);
     }
 
     public function test_participant_finalise_validation_checks(): void
