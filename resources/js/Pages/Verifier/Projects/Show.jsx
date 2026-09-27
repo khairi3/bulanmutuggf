@@ -98,7 +98,23 @@ export default function VerifierProjectShow({
         }));
     };
 
+    const [isSubmittingScore, setIsSubmittingScore] = useState(false);
+    const [scoreErrors, setScoreErrors] = useState({});
+
+    // Parameter completion validation
+    const missingParams = useMemo(() => {
+        return scoringParameters.filter((param) => {
+            const raw = scores[param.id]?.score;
+            return raw === null || raw === undefined || raw === '' || isNaN(parseFloat(raw));
+        });
+    }, [scoringParameters, scores]);
+
+    const isAllParametersScored = missingParams.length === 0;
+
     const handleSaveScores = (isSubmitFinal = false) => {
+        setIsSubmittingScore(true);
+        setScoreErrors({});
+
         router.post(`/verifier/projects/${project.id}/score`, {
             scores: scores,
             submit: isSubmitFinal,
@@ -108,6 +124,12 @@ export default function VerifierProjectShow({
                 if (isSubmitFinal) {
                     setIsSubmitModalOpen(false);
                 }
+            },
+            onError: (errors) => {
+                setScoreErrors(errors);
+            },
+            onFinish: () => {
+                setIsSubmittingScore(false);
             },
         });
     };
@@ -465,9 +487,22 @@ export default function VerifierProjectShow({
 
                                 {!isScoreLocked && (
                                     <div className="mt-6 space-y-2">
+                                        {!isAllParametersScored && (
+                                            <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] flex items-start gap-2">
+                                                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                                <div>
+                                                    <p className="font-bold">Penilaian Belum Lengkap ({scoringParameters.length - missingParams.length}/{scoringParameters.length})</p>
+                                                    <p className="text-[10px] text-amber-700 mt-0.5">
+                                                        Lengkapi nilai seluruh parameter sebelum melakukan Submit Final.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <Button
                                             type="button"
                                             variant="secondary"
+                                            disabled={isSubmittingScore}
                                             onClick={() => handleSaveScores(false)}
                                             className="w-full justify-center"
                                         >
@@ -478,7 +513,11 @@ export default function VerifierProjectShow({
                                         <Button
                                             type="button"
                                             variant="primary"
-                                            onClick={() => setIsSubmitModalOpen(true)}
+                                            disabled={isSubmittingScore}
+                                            onClick={() => {
+                                                setScoreErrors({});
+                                                setIsSubmitModalOpen(true);
+                                            }}
                                             className="w-full justify-center"
                                         >
                                             <CheckCircle2 className="w-4 h-4 mr-2" />
@@ -915,35 +954,126 @@ export default function VerifierProjectShow({
 
             {/* Modal Konfirmasi Submit Final Nilai (VER-07) */}
             <Modal
+                isOpen={isSubmitModalOpen}
                 show={isSubmitModalOpen}
-                onClose={() => setIsSubmitModalOpen(false)}
+                onClose={() => !isSubmittingScore && setIsSubmitModalOpen(false)}
                 title="Konfirmasi Submit Final Penilaian"
+                maxWidth="lg"
             >
                 <div className="space-y-4 text-xs text-slate-600">
-                    <div className="p-3.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 space-y-1">
-                        <p className="font-bold">Peringatan: Tindakan ini mengunci nilai secara permanen!</p>
-                        <p className="text-[11px]">
-                            Setelah disubmit, seluruh nilai parameter akan dikunci dan status project akan berubah menjadi <b>Terverifikasi</b>.
-                        </p>
-                    </div>
+                    {/* Error Alerts if any */}
+                    {Object.keys(scoreErrors).length > 0 && (
+                        <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 space-y-1">
+                            <p className="font-bold flex items-center gap-1.5">
+                                <AlertCircle className="w-4 h-4 text-rose-600" />
+                                <span>Gagal Menyimpan Penilaian:</span>
+                            </p>
+                            <ul className="list-disc list-inside text-[11px] text-rose-700">
+                                {Object.values(scoreErrors).map((err, idx) => (
+                                    <li key={idx}>{err}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
 
+                    {!isAllParametersScored ? (
+                        <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 space-y-1">
+                            <p className="font-bold flex items-center gap-1.5">
+                                <AlertCircle className="w-4 h-4 text-rose-600" />
+                                <span>Penilaian Belum Lengkap ({missingParams.length} parameter belum dinilai)</span>
+                            </p>
+                            <p className="text-[11px]">
+                                Anda wajib memberikan skor pada seluruh parameter sebelum mengunci penilaian final:
+                            </p>
+                            <ul className="list-disc list-inside text-[11px] text-rose-700 font-semibold">
+                                {missingParams.map((p) => (
+                                    <li key={p.id}>{p.name}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    ) : (
+                        <div className="p-3.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 space-y-1">
+                            <p className="font-bold flex items-center gap-1.5">
+                                <AlertCircle className="w-4 h-4 text-amber-600" />
+                                <span>Peringatan: Tindakan ini mengunci nilai secara permanen!</span>
+                            </p>
+                            <p className="text-[11px]">
+                                Setelah disubmit, seluruh nilai parameter akan dikunci dan status project akan berubah menjadi <b>Terverifikasi</b>.
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Score summary */}
                     <div className="p-4 rounded-xl bg-slate-900 text-white text-center">
                         <span className="text-[11px] text-slate-400 uppercase tracking-wider block">
                             Total Skor Tertimbang yang Akan Dikunci
                         </span>
                         <div className="text-3xl font-black text-emerald-400 mt-1 font-mono">
-                            {liveWeightedTotal}
+                            {liveWeightedTotal} <span className="text-sm font-normal text-slate-400">/ 100</span>
                         </div>
                     </div>
 
-                    <p>Apakah Anda yakin seluruh parameter telah dinilai secara objektif dan akurat?</p>
+                    {/* Breakdown table */}
+                    <div>
+                        <span className="font-bold text-slate-700 block mb-1.5">Rincian Nilai per Parameter:</span>
+                        <div className="rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100 max-h-48 overflow-y-auto">
+                            {scoringParameters.map((param, idx) => {
+                                const scoreVal = scores[param.id]?.score;
+                                const weightVal = parseFloat(param.weight) || 0;
+                                const pointVal = (parseFloat(scoreVal) || 0) * (weightVal / 100);
+                                const isFilled = scoreVal !== null && scoreVal !== undefined && scoreVal !== '' && !isNaN(parseFloat(scoreVal));
+                                return (
+                                    <div key={param.id} className="p-2.5 flex items-center justify-between text-xs bg-slate-50/50">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-[10px]">
+                                                {idx + 1}
+                                            </span>
+                                            <div>
+                                                <p className="font-semibold text-slate-800">{param.name}</p>
+                                                <p className="text-[10px] text-slate-500">Bobot: {param.weight}%</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            {isFilled ? (
+                                                <>
+                                                    <span className="font-mono font-bold text-slate-900">{scoreVal} / 100</span>
+                                                    <span className="text-[10px] text-emerald-600 block">+{pointVal.toFixed(2)} poin</span>
+                                                </>
+                                            ) : (
+                                                <span className="text-[11px] font-bold text-rose-600">Belum Dinilai</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
 
-                    <div className="flex justify-end gap-2 pt-2">
-                        <Button variant="secondary" onClick={() => setIsSubmitModalOpen(false)}>
+                    <div className={`p-2.5 rounded-lg border text-[11px] flex items-center justify-between ${
+                        visits.length > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}>
+                        <span>Log Kunjungan Fisik / Lapangan (VER-04):</span>
+                        <span className="font-bold">
+                            {visits.length > 0 ? `✓ Tercatat (${visits.length} visit)` : 'Belum Ada (Opsional)'}
+                        </span>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                        <Button
+                            variant="secondary"
+                            disabled={isSubmittingScore}
+                            onClick={() => setIsSubmitModalOpen(false)}
+                        >
                             Batal
                         </Button>
-                        <Button variant="primary" onClick={() => handleSaveScores(true)}>
-                            Ya, Submit Final & Kunci Nilai
+                        <Button
+                            variant="primary"
+                            loading={isSubmittingScore}
+                            disabled={!isAllParametersScored || isSubmittingScore}
+                            onClick={() => handleSaveScores(true)}
+                        >
+                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                            <span>Ya, Submit Final & Kunci Nilai</span>
                         </Button>
                     </div>
                 </div>
