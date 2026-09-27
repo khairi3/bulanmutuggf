@@ -11,7 +11,10 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use OpenSpout\Common\Entity\Row;
+use OpenSpout\Common\Entity\Style\Style;
 use OpenSpout\Reader\XLSX\Reader as XlsxReader;
+use OpenSpout\Writer\XLSX\Writer;
 
 class EmployeeImportService
 {
@@ -29,7 +32,7 @@ class EmployeeImportService
             $reader->open($filePath);
             foreach ($reader->getSheetIterator() as $sheet) {
                 foreach ($sheet->getRowIterator() as $row) {
-                    $rows[] = array_map(fn ($cell) => trim((string) $cell->getValue()), $row->getCells());
+                    $rows[] = array_map(fn ($val) => trim((string) $val), $row->toArray());
                 }
                 break; // read first sheet only
             }
@@ -246,5 +249,72 @@ class EmployeeImportService
         }
 
         return $map;
+    }
+
+    /**
+     * Download template file import master data karyawan (XLSX / CSV).
+     */
+    public function downloadTemplate(string $format = 'xlsx'): mixed
+    {
+        $headers = [
+            'employee_index',
+            'full_name',
+            'employee_level',
+            'position',
+            'unit',
+            'division',
+            'email',
+            'phone',
+        ];
+
+        $sampleRows = [
+            ['EMP1001', 'Budi Santoso', 'Officer', 'Continuous Improvement Specialist', 'GGF HO', 'Operational Excellence', 'budi.s@ggf.co.id', '081234567890'],
+            ['EMP1002', 'Siti Rahmawati', 'Section Head', 'Agronomy Specialist', 'PG1', 'Plantation PG1', 'siti.r@ggf.co.id', '081234567891'],
+            ['EMP1003', 'Ahmad Hidayat', 'Department Head', 'Factory Quality Specialist', 'MFG', 'Quality Assurance', 'ahmad.h@ggf.co.id', '081234567892'],
+            ['EMP1004', 'Nanang Kosim', 'Operator', 'Electrical Maintenance', 'MFG', 'Engineering Factory', '', '081234567893'],
+        ];
+
+        if (strtolower($format) === 'csv') {
+            $filename = 'template_import_karyawan.csv';
+            $responseHeaders = [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+                'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+                'Pragma' => 'no-cache',
+                'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+                'Expires' => '0',
+            ];
+
+            return response()->stream(function () use ($headers, $sampleRows) {
+                $handle = fopen('php://output', 'w');
+                // Write UTF-8 BOM for Microsoft Excel compatibility
+                fwrite($handle, "\xEF\xBB\xBF");
+
+                fputcsv($handle, $headers);
+                foreach ($sampleRows as $row) {
+                    fputcsv($handle, $row);
+                }
+                fclose($handle);
+            }, 200, $responseHeaders);
+        }
+
+        // Default: Excel (.xlsx) using OpenSpout
+        $tempPath = tempnam(sys_get_temp_dir(), 'tpl_emp_').'.xlsx';
+        $writer = new Writer;
+        $writer->openToFile($tempPath);
+
+        $headerStyle = (new Style)
+            ->withFontBold(true);
+
+        $writer->addRow(Row::fromValuesWithStyle($headers, $headerStyle));
+
+        foreach ($sampleRows as $rowValues) {
+            $writer->addRow(Row::fromValues($rowValues));
+        }
+
+        $writer->close();
+
+        return response()->download($tempPath, 'template_import_karyawan.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
 }

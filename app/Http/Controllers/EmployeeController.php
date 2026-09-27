@@ -48,6 +48,16 @@ class EmployeeController extends Controller
     }
 
     /**
+     * Download template import master data karyawan (XLSX / CSV).
+     */
+    public function downloadTemplate(Request $request): mixed
+    {
+        $format = $request->input('format', 'xlsx');
+
+        return $this->importService->downloadTemplate($format);
+    }
+
+    /**
      * Preview uploaded CSV / Excel file before committing (EMP-02).
      */
     public function previewImport(Request $request): JsonResponse

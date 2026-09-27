@@ -199,6 +199,14 @@ export default function EmployeesIndex({ employees, units, filters }) {
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
+                        <a
+                            href="/admin/employees/template?format=xlsx"
+                            className="inline-flex items-center justify-center px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 hover:text-slate-900 transition shadow-xs"
+                            title="Unduh Template Excel (.xlsx) untuk Import Data Karyawan"
+                        >
+                            <Download className="w-4 h-4 mr-1.5 text-slate-500" />
+                            <span>Download Template</span>
+                        </a>
                         <Button variant="primary" onClick={() => setIsImportModalOpen(true)}>
                             <UploadCloud className="w-4 h-4 mr-2" />
                             <span>Import Excel/CSV</span>
@@ -353,6 +361,30 @@ export default function EmployeesIndex({ employees, units, filters }) {
                 {!previewData ? (
                     // Step 1: Upload Form
                     <form onSubmit={handlePreviewFile} className="space-y-4">
+                        {/* Download Template Banner */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs">
+                            <div className="flex items-center gap-2 text-emerald-900 font-medium">
+                                <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <span>Belum punya template format karyawan?</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <a
+                                    href="/admin/employees/template?format=xlsx"
+                                    className="inline-flex items-center gap-1 font-bold text-emerald-700 hover:text-emerald-900 px-2.5 py-1 rounded-lg bg-white border border-emerald-300 hover:bg-emerald-50 transition shadow-xs text-xs"
+                                >
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span>Excel (.xlsx)</span>
+                                </a>
+                                <a
+                                    href="/admin/employees/template?format=csv"
+                                    className="inline-flex items-center gap-1 font-semibold text-slate-600 hover:text-slate-800 px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 transition shadow-xs text-xs"
+                                >
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span>CSV (.csv)</span>
+                                </a>
+                            </div>
+                        </div>
+
                         <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl p-6 text-center transition-colors bg-slate-50">
                             <FileSpreadsheet className="w-10 h-10 text-emerald-600 mx-auto mb-2" />
                             <h4 className="text-sm font-bold text-slate-800 mb-1">

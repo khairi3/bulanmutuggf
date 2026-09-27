@@ -59,6 +59,7 @@ Route::middleware('auth')->group(function () {
 
         // Employee Management & Import (Task 2.1)
         Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
+        Route::get('/employees/template', [EmployeeController::class, 'downloadTemplate'])->name('employees.template');
         Route::post('/employees/preview-import', [EmployeeController::class, 'previewImport'])->name('employees.preview-import');
         Route::post('/employees/commit-import', [EmployeeController::class, 'commitImport'])->name('employees.commit-import');
         Route::post('/employees/{employee}/toggle-active', [EmployeeController::class, 'toggleActive'])->name('employees.toggle-active');
