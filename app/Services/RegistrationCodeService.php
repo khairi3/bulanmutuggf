@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\CategoryOption;
+use App\Models\Project;
 use App\Models\RegistrationSequence;
 use App\Models\Stream;
 use Illuminate\Support\Facades\DB;
@@ -23,20 +24,41 @@ class RegistrationCodeService
                 ->lockForUpdate()
                 ->first();
 
+            // Find highest existing number from projects table for this prefix to avoid collisions with seeded/pre-existing data
+            $highestProjectNumber = (int) (Project::where('registration_code', 'LIKE', "{$prefix}-%")
+                ->pluck('registration_code')
+                ->map(function ($code) {
+                    $parts = explode('-', $code);
+
+                    return (int) end($parts);
+                })
+                ->max() ?? 0);
+
             if (! $sequence) {
                 $sequence = RegistrationSequence::create([
                     'stream_id' => $stream->id,
                     'prefix' => $prefix,
-                    'last_number' => 0,
+                    'last_number' => $highestProjectNumber,
                 ]);
 
                 // Re-lock the newly created row
                 $sequence = RegistrationSequence::where('id', $sequence->id)
                     ->lockForUpdate()
                     ->first();
+            } else {
+                // If sequence table is behind existing projects in DB, sync it up
+                if ($sequence->last_number < $highestProjectNumber) {
+                    $sequence->update(['last_number' => $highestProjectNumber]);
+                }
             }
 
-            $nextNumber = $sequence->last_number + 1;
+            $nextNumber = max($sequence->last_number, $highestProjectNumber) + 1;
+
+            // Collision check: verify code is truly unused, increment if already taken
+            while (Project::where('registration_code', "{$prefix}-".sprintf('%03d', $nextNumber))->exists()) {
+                $nextNumber++;
+            }
+
             $sequence->update(['last_number' => $nextNumber]);
 
             $formattedNumber = sprintf('%03d', $nextNumber);

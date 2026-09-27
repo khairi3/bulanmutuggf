@@ -337,4 +337,43 @@ class ParticipantProjectTest extends TestCase
             ->where('draftProject.title', 'Draft Inovasi Baru')
         );
     }
+
+    public function test_registration_code_avoids_collision_with_existing_codes(): void
+    {
+        $leader = Employee::where('employee_index', 'EMP1010')->first()->user;
+        $k3 = Stream::where('code', Stream::CODE_K3)->first();
+
+        // Seed a pre-existing project with SIGAP-001 without sequence table row
+        $otherEmployee = Employee::where('employee_index', 'EMP1009')->first();
+        Project::create([
+            'stream_id' => $k3->id,
+            'title' => 'Existing SIGAP Project',
+            'status' => Project::STATUS_SUBMITTED,
+            'registration_code' => 'SIGAP-001',
+            'leader_employee_id' => $otherEmployee->id,
+        ]);
+
+        $catOptionId = $k3->categoryDimensions->flatMap->options->first()?->id;
+        $member = Employee::where('employee_index', 'EMP1008')->first();
+
+        // Submit new project in K3 stream
+        $response = $this->actingAs($leader)->post('/participant/projects/submit', [
+            'stream_id' => $k3->id,
+            'title' => 'New SIGAP Project',
+            'category_option_ids' => $catOptionId ? [$catOptionId] : [],
+            'member_employee_ids' => [$member->id],
+            'agree_originality' => true,
+            'executive_summary' => 'Summary',
+            'problem_statement' => 'Problem',
+            'goal_statement' => 'Goal',
+            'milestones' => [['milestone' => 'M1', 'target_date' => '2026-10-01', 'pic' => 'PIC', 'status' => 'Pending']],
+            'initiatives' => [['initiative' => 'I1', 'description' => 'Desc']],
+        ]);
+
+        $response->assertSessionHas('success');
+
+        $newProject = Project::where('title', 'New SIGAP Project')->first();
+        $this->assertNotNull($newProject);
+        $this->assertEquals('SIGAP-002', $newProject->registration_code);
+    }
 }

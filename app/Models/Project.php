@@ -90,7 +90,7 @@ class Project extends Model
 
     public function getStatusLabelAttribute(): string
     {
-        return self::STATUS_LABELS[$this->status] ?? $this->status;
+        return self::STATUS_LABELS[$this->status] ?? (string) $this->status;
     }
 
     public function stream(): BelongsTo
