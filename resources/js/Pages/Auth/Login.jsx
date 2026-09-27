@@ -4,7 +4,6 @@ import {
     User,
     Lock,
     ArrowRight,
-    ShieldCheck,
     HelpCircle,
     UserPlus,
     Phone,
@@ -228,20 +227,6 @@ export default function Login({ status }) {
                             </button>
                         </div>
                     </form>
-
-                    {/* Quick Demo Info Box for Evaluation */}
-                    <div className="mt-6 pt-5 border-t border-slate-100 text-xs text-slate-500 space-y-2">
-                        <div className="flex items-center gap-1.5 text-slate-700 font-semibold">
-                            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                            <span>Informasi Akun Demo (Seeder Phase 1):</span>
-                        </div>
-                        <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/60 font-mono text-[11px] space-y-1">
-                            <div><strong className="text-slate-800">Admin:</strong> ADMIN001 / Admin123!</div>
-                            <div><strong className="text-slate-800">Multi-Role (Peserta+Verifikator):</strong> EMP1001 / password123</div>
-                            <div><strong className="text-slate-800">Peserta (Umum):</strong> EMP1007 / password123</div>
-                            <div><strong className="text-slate-800">Tanpa Email (Test Reset):</strong> EMP1015 / password123</div>
-                        </div>
-                    </div>
                 </div>
 
                 <p className="mt-6 text-center text-xs text-slate-400">
