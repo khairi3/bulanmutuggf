@@ -222,8 +222,8 @@ Pengerjaan dibagi 9 phase berurutan; Phase 0 sampai 4 membentuk MVP yang harus l
 | **Phase 3** | Module Peserta: registrasi & charter | P0 | Phase 2 | Registrasi dibuka | **Selesai** |
 | **Phase 4** | Module Verifikator: review, feedback, nilai | P0 | Phase 3 | Fase Verifikasi | **Selesai** |
 | **Phase 5** | Seleksi, Convention prep & Module Juri | P1 | Phase 4 | Convention Day | **Selesai** |
-| **Phase 6** | Rekap, notifikasi lanjutan & dashboard manajemen | P1 | Phase 5 | Pengumuman | **Berikutnya (Next)** |
-| **Phase 7** | QA, UAT & deployment Hostinger | P0 | Tiap phase | Setiap rilis | Menunggu |
+| **Phase 6** | Rekap, notifikasi lanjutan & dashboard manajemen | P1 | Phase 5 | Pengumuman | **Selesai** |
+| **Phase 7** | QA, UAT & deployment Hostinger | P0 | Tiap phase | Setiap rilis | **Berikutnya (Next)** |
 | **Phase 8** | Backlog pasca-launch (P2) | P2 | Phase 6 | — | Backlog |
 
 ---
@@ -298,13 +298,13 @@ Pengerjaan dibagi 9 phase berurutan; Phase 0 sampai 4 membentuk MVP yang harus l
 - [x] 5.11 Uji split screen di laptop 1366 px dan tablet 10 inci.
 
 #### Phase 6 — Rekap, Notifikasi Lanjutan & Dashboard Manajemen
-- [ ] 6.1 Service rekap nilai akhir + ranking + tie-breaker; tabel `final_results` (REP-01, CFG-08).
-- [ ] 6.2 Publish pengumuman pemenang (ADM-05, NOT-07).
-- [ ] 6.3 Export Excel: registrasi, nilai verifikasi, nilai juri, ranking (ADM-06, VER-11).
-- [ ] 6.4 Buka kunci project/nilai dengan alasan + tampilan audit log (ADM-04, ADM-07).
-- [ ] 6.5 Pengingat deadline H-3 dan H-1 via scheduler (NOT-04); email assignment (NOT-06).
-- [ ] 6.6 Dashboard manajemen: KPI, funnel status, partisipasi per area (REP-02).
-- [ ] 6.7 Thread balasan feedback + tandai ditindaklanjuti (PAR-09).
+- [x] 6.1 Service rekap nilai akhir + ranking + tie-breaker; tabel `final_results` (REP-01, CFG-08).
+- [x] 6.2 Publish pengumuman pemenang (ADM-05, NOT-07).
+- [x] 6.3 Export Excel: registrasi, nilai verifikasi, nilai juri, ranking (ADM-06, VER-11).
+- [x] 6.4 Buka kunci project/nilai dengan alasan + tampilan audit log (ADM-04, ADM-07).
+- [x] 6.5 Pengingat deadline H-3 dan H-1 via scheduler (NOT-04); email assignment (NOT-06).
+- [x] 6.6 Dashboard manajemen: KPI, funnel status, partisipasi per area (REP-02).
+- [x] 6.7 Thread balasan feedback + tandai ditindaklanjuti (PAR-09).
 
 #### Phase 7 — QA, UAT & Deployment Hostinger
 - [ ] 7.1 Automated test: unit test service kode registrasi, skor, transisi status; feature test RBAC.
