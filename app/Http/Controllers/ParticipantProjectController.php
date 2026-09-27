@@ -221,12 +221,18 @@ class ParticipantProjectController extends Controller
             'milestones.*.milestone' => ['required', 'string'],
             'initiatives' => ['required', 'array', 'min:1'],
             'initiatives.*.initiative' => ['required', 'string'],
+            'external_url' => ['nullable', 'url', 'max:500'],
+            'files' => ['nullable', 'array'],
+            'files.*' => ['file', 'mimes:pdf,ppt,pptx,xls,xlsx,jpg,jpeg,png,mp4', 'max:102400'],
             'agree_originality' => ['accepted'],
         ], [
             'agree_originality.accepted' => 'Anda wajib mencentang pernyataan orisinalitas karya.',
             'category_option_ids.required' => 'Pilihan kategori stream wajib dilengkapi.',
             'milestones.min' => 'Key Milestone wajib diisi minimal 1 baris.',
             'initiatives.min' => 'Inisiatif perbaikan wajib diisi minimal 1 item.',
+            'external_url.url' => 'Format tautan video tidak valid.',
+            'files.*.max' => 'Ukuran berkas maksimal adalah 100 MB.',
+            'files.*.mimes' => 'Format berkas harus berupa PPT, PPTX, PDF, XLS, XLSX, JPG, PNG, atau MP4.',
         ]);
 
         $stream = Stream::with('categoryDimensions')->findOrFail($request->input('stream_id'));
@@ -318,6 +324,46 @@ class ParticipantProjectController extends Controller
             );
 
             $project->update(['current_version_id' => $version->id]);
+
+            // Save external video link if provided (PAR-05)
+            if ($request->filled('external_url')) {
+                $project->files()->create([
+                    'charter_version_id' => $version->id,
+                    'file_category' => 'final_video',
+                    'external_url' => $request->input('external_url'),
+                    'original_name' => 'Tautan Video Implementasi',
+                    'uploaded_by' => $user->id,
+                ]);
+            }
+
+            // Save uploaded supporting files if provided (PAR-04)
+            if ($request->hasFile('files')) {
+                $files = $request->file('files');
+                if (! is_array($files)) {
+                    $files = [$files];
+                }
+                $eventId = $stream->event_id ?? 'default';
+
+                foreach ($files as $uploadedFile) {
+                    if (! $uploadedFile) {
+                        continue;
+                    }
+                    $ext = $uploadedFile->getClientOriginalExtension();
+                    $uuid = Str::uuid()->toString();
+                    $storageDir = "private/events/{$eventId}/projects/{$project->id}";
+                    $path = $uploadedFile->storeAs($storageDir, "{$uuid}.{$ext}");
+
+                    $project->files()->create([
+                        'charter_version_id' => $version->id,
+                        'file_category' => 'supporting',
+                        'storage_path' => $path,
+                        'original_name' => $uploadedFile->getClientOriginalName(),
+                        'mime_type' => $uploadedFile->getMimeType(),
+                        'size_bytes' => $uploadedFile->getSize(),
+                        'uploaded_by' => $user->id,
+                    ]);
+                }
+            }
 
             // Notifications for all members (NOT-01)
             $usersToNotify = User::whereIn('employee_id', $allTeamIds)->get();

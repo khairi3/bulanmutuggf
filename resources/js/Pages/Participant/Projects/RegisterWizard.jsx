@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import Card from '@/Components/Card';
@@ -22,6 +22,9 @@ import {
     AlertCircle,
     Clock,
     Sparkles,
+    Paperclip,
+    FileSpreadsheet,
+    Film,
 } from 'lucide-react';
 
 export default function RegisterWizard({ activeEvent, streams, currentEmployee }) {
@@ -55,6 +58,59 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee }
     const [agreeOriginality, setAgreeOriginality] = useState(false);
     const [submitErrors, setSubmitErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const fileInputRef = useRef(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const [fileError, setFileError] = useState(null);
+
+    const formatBytes = (bytes) => {
+        if (!bytes || bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    };
+
+    const getFileIcon = (fileName) => {
+        const ext = fileName.split('.').pop()?.toLowerCase();
+        if (['ppt', 'pptx'].includes(ext)) return <FileText className="w-5 h-5 text-orange-600 shrink-0" />;
+        if (['xls', 'xlsx', 'csv'].includes(ext)) return <FileSpreadsheet className="w-5 h-5 text-emerald-600 shrink-0" />;
+        if (['mp4', 'mov', 'avi'].includes(ext)) return <Film className="w-5 h-5 text-purple-600 shrink-0" />;
+        return <FileText className="w-5 h-5 text-blue-600 shrink-0" />;
+    };
+
+    const addValidFiles = (files) => {
+        setFileError(null);
+        const maxSizeBytes = 20 * 1024 * 1024; // 20 MB per file
+        const allowedExtensions = ['ppt', 'pptx', 'pdf', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'mp4'];
+
+        const valid = [];
+        for (const f of files) {
+            const ext = f.name.split('.').pop()?.toLowerCase();
+            if (!allowedExtensions.includes(ext)) {
+                setFileError(`Format file "${f.name}" tidak didukung. Harap unggah PPT, PDF, XLS, JPG, PNG, atau MP4.`);
+                continue;
+            }
+            if (f.size > maxSizeBytes) {
+                setFileError(`Ukuran file "${f.name}" (${formatBytes(f.size)}) melebihi batas maksimal 20 MB.`);
+                continue;
+            }
+            valid.push(f);
+        }
+
+        if (valid.length > 0) {
+            setUploadedFiles((prev) => [...prev, ...valid]);
+        }
+    };
+
+    const handleFilesAdded = (e) => {
+        const files = Array.from(e.target.files || []);
+        addValidFiles(files);
+        if (e.target) e.target.value = '';
+    };
+
+    const handleRemoveFile = (indexToRemove) => {
+        setUploadedFiles((prev) => prev.filter((_, i) => i !== indexToRemove));
+    };
 
     const currentStream = streams.find((s) => s.id === parseInt(selectedStreamId)) || streams[0];
 
@@ -209,10 +265,12 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee }
             category_option_ids: Object.values(categoryOptions),
             member_employee_ids: teamMembers.map((m) => m.id),
             external_url: externalVideoUrl,
+            files: uploadedFiles,
             agree_originality: agreeOriginality,
         };
 
         router.post('/participant/projects/submit', payload, {
+            forceFormData: true,
             onError: (errs) => {
                 setSubmitErrors(errs);
                 setIsSubmitting(false);
@@ -674,18 +732,112 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee }
                         subtitle="Unggah dokumen pendukung (PPT/PDF/XLS/JPG) atau tautan video implementasi."
                     >
                         <div className="space-y-6">
-                            <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl p-6 text-center transition-colors bg-slate-50">
-                                <UploadCloud className="w-10 h-10 text-emerald-600 mx-auto mb-2" />
-                                <h4 className="text-sm font-bold text-slate-800">
+                            {/* File Upload Dropzone */}
+                            <div
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    setIsDragging(true);
+                                }}
+                                onDragLeave={() => setIsDragging(false)}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    setIsDragging(false);
+                                    if (e.dataTransfer?.files) {
+                                        addValidFiles(Array.from(e.dataTransfer.files));
+                                    }
+                                }}
+                                onClick={() => fileInputRef.current?.click()}
+                                className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center transition-all cursor-pointer select-none ${
+                                    isDragging
+                                        ? 'border-emerald-500 bg-emerald-50 scale-[1.01]'
+                                        : 'border-slate-300 hover:border-emerald-500 bg-slate-50 hover:bg-emerald-50/20'
+                                }`}
+                            >
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    multiple
+                                    accept=".pdf,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.mp4"
+                                    className="hidden"
+                                    onChange={handleFilesAdded}
+                                />
+                                <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3 shadow-inner">
+                                    <UploadCloud className="w-7 h-7" />
+                                </div>
+                                <h4 className="text-sm font-bold text-slate-800 mb-1">
                                     Unggah Berkas Presentasi / Data Lampiran
                                 </h4>
-                                <p className="text-xs text-slate-500 mt-1 mb-3">
+                                <p className="text-xs text-slate-500 mb-3 max-w-md mx-auto">
                                     Mendukung PPT, PPTX, PDF, XLS, XLSX, JPG, PNG, MP4. Maksimal 20 MB per file.
                                 </p>
-                                <span className="inline-block text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg">
-                                    Berkas dapat dilengkapi saat ini atau menyusul setelah submit
-                                </span>
+                                <button
+                                    type="button"
+                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm pointer-events-none"
+                                >
+                                    <Paperclip className="w-4 h-4" />
+                                    <span>Pilih Berkas Dari Komputer</span>
+                                </button>
+                                <div className="mt-3">
+                                    <span className="inline-block text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-lg">
+                                        Berkas dapat dilengkapi saat ini atau menyusul setelah submit
+                                    </span>
+                                </div>
                             </div>
+
+                            {/* Error Alert */}
+                            {fileError && (
+                                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-2">
+                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                    <span>{fileError}</span>
+                                </div>
+                            )}
+
+                            {/* Uploaded Files List */}
+                            {uploadedFiles.length > 0 && (
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-xs font-bold text-slate-700 px-1">
+                                        <span>Daftar Berkas Terpilih ({uploadedFiles.length})</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setUploadedFiles([])}
+                                            className="text-slate-400 hover:text-rose-600 text-[11px] font-semibold"
+                                        >
+                                            Hapus Semua
+                                        </button>
+                                    </div>
+                                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl bg-white overflow-hidden shadow-xs">
+                                        {uploadedFiles.map((file, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="p-3 flex items-center justify-between gap-3 hover:bg-slate-50/80 transition"
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    {getFileIcon(file.name)}
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs font-bold text-slate-800 truncate">
+                                                            {file.name}
+                                                        </p>
+                                                        <p className="text-[11px] text-slate-400">
+                                                            {formatBytes(file.size)} • Siap dilampirkan
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleRemoveFile(idx);
+                                                    }}
+                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                                    title="Hapus berkas ini"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Video Besar External URL (PAR-05) */}
                             <div>
@@ -731,6 +883,18 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee }
                                     <span className="font-bold text-slate-500">Jumlah Anggota Tim:</span>
                                     <span className="font-bold text-slate-900">{teamMembers.length + 1} Orang</span>
                                 </div>
+                                <div className="flex justify-between border-b border-slate-200 pb-2">
+                                    <span className="font-bold text-slate-500">Berkas Lampiran:</span>
+                                    <span className="font-semibold text-slate-900">
+                                        {uploadedFiles.length > 0 ? `${uploadedFiles.length} berkas dilampirkan` : 'Belum ada (opsional)'}
+                                    </span>
+                                </div>
+                                {externalVideoUrl && (
+                                    <div className="flex justify-between border-b border-slate-200 pb-2">
+                                        <span className="font-bold text-slate-500">Tautan Video:</span>
+                                        <span className="font-mono text-emerald-700 truncate max-w-xs">{externalVideoUrl}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between">
                                     <span className="font-bold text-slate-500">Key Milestones:</span>
                                     <span className="font-bold text-slate-900">{charter.milestones.length} Tahapan</span>

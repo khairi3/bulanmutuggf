@@ -105,6 +105,64 @@ class ParticipantProjectTest extends TestCase
         ]);
     }
 
+    public function test_participant_can_submit_project_with_supporting_files_and_video_url(): void
+    {
+        $leader = Employee::where('employee_index', 'EMP1007')->first()->user;
+        $member1 = Employee::where('employee_index', 'EMP1008')->first();
+        $member2 = Employee::where('employee_index', 'EMP1009')->first();
+        $cic = Stream::where('code', Stream::CODE_CIC)->first();
+
+        $bOpt = CategoryOption::where('abbreviation', 'B')->first();
+        $mechOpt = CategoryOption::where('abbreviation', 'MECH')->first();
+        $pg1Opt = CategoryOption::where('abbreviation', 'PG1')->first();
+
+        $dummyPpt = UploadedFile::fake()->create('presentasi.pptx', 2048, 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+        $dummyPdf = UploadedFile::fake()->create('lampiran_data.pdf', 1024, 'application/pdf');
+
+        $response = $this->actingAs($leader)->post('/participant/projects/submit', [
+            'stream_id' => $cic->id,
+            'title' => 'Inovasi Panel Tenaga Surya Pabrik',
+            'executive_summary' => 'Executive summary inovasi tenaga surya',
+            'problem_statement' => 'Biaya energi listrik tinggi',
+            'goal_statement' => 'Efisiensi energi 30%',
+            'category_option_ids' => [$bOpt->id, $mechOpt->id, $pg1Opt->id],
+            'member_employee_ids' => [$member1->id, $member2->id],
+            'milestones' => [
+                ['milestone' => 'Instalasi Inverter', 'target_date' => '2026-11-01', 'pic' => 'Dedi', 'status' => 'Plan'],
+            ],
+            'initiatives' => [
+                ['initiative' => 'Pemasangan Solar Cell', 'description' => 'Pasang di atap gedung'],
+            ],
+            'files' => [$dummyPpt, $dummyPdf],
+            'external_url' => 'https://youtu.be/dummyvideo123',
+            'agree_originality' => true,
+        ]);
+
+        $project = Project::where('title', 'Inovasi Panel Tenaga Surya Pabrik')->first();
+        $this->assertNotNull($project);
+        $this->assertEquals('submitted', $project->status);
+        $response->assertRedirect("/participant/projects/{$project->id}");
+
+        // Assert supporting files stored
+        $this->assertDatabaseHas('project_files', [
+            'project_id' => $project->id,
+            'original_name' => 'presentasi.pptx',
+            'file_category' => 'supporting',
+        ]);
+        $this->assertDatabaseHas('project_files', [
+            'project_id' => $project->id,
+            'original_name' => 'lampiran_data.pdf',
+            'file_category' => 'supporting',
+        ]);
+
+        // Assert video link stored
+        $this->assertDatabaseHas('project_files', [
+            'project_id' => $project->id,
+            'external_url' => 'https://youtu.be/dummyvideo123',
+            'file_category' => 'final_video',
+        ]);
+    }
+
     public function test_submit_validates_team_size_limits(): void
     {
         $leader = Employee::where('employee_index', 'EMP1007')->first()->user;
