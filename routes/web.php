@@ -34,6 +34,10 @@ Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
 
+    Route::get('/register', fn () => redirect('/login?register=1'))->name('register');
+    Route::post('/register-account/check', [AuthController::class, 'checkEmployeeActivation'])->name('register.check');
+    Route::post('/register-account', [AuthController::class, 'registerAccount'])->name('register.submit');
+
     Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
     Route::post('/forgot-password', [AuthController::class, 'sendResetInstructions'])->name('password.email');
 });

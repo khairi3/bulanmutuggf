@@ -114,7 +114,7 @@ class EmployeeController extends Controller
                 $q->where('employee_index', 'like', "{$query}%")
                     ->orWhere('full_name', 'like', "%{$query}%");
             })
-            ->select(['id', 'employee_index', 'full_name', 'employee_level', 'position', 'unit', 'division'])
+            ->select(['id', 'employee_index', 'full_name', 'employee_level', 'position', 'unit', 'division', 'email', 'phone'])
             ->limit(15)
             ->get();
 

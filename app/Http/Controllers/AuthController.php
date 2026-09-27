@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\Employee;
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -284,6 +285,146 @@ class AuthController extends Controller
         );
 
         return back()->with('success', "Password untuk karyawan {$user->employee?->full_name} berhasil direset ke password sementara default.");
+    }
+
+    /**
+     * Cek status aktivasi akun karyawan untuk form Buat Akun.
+     */
+    public function checkEmployeeActivation(Request $request): JsonResponse
+    {
+        $request->validate([
+            'employee_index' => ['required', 'string'],
+        ]);
+
+        $index = trim($request->input('employee_index'));
+        $employee = Employee::where('employee_index', $index)->first();
+
+        if (! $employee) {
+            return response()->json([
+                'found' => false,
+                'message' => "Index / NIK '{$index}' tidak terdaftar di Master Data Karyawan. Pastikan NIK Anda sudah terdaftar atau hubungi Admin / HR.",
+            ], 404);
+        }
+
+        if (! $employee->is_active) {
+            return response()->json([
+                'found' => false,
+                'message' => "Karyawan {$employee->full_name} berstatus tidak aktif. Silakan hubungi HR.",
+            ], 422);
+        }
+
+        $user = $employee->user;
+        // Jika akun user sudah ada dan must_change_password false, akun sudah aktif sebelumnya
+        if ($user && ! $user->must_change_password) {
+            return response()->json([
+                'found' => true,
+                'can_activate' => false,
+                'message' => "Akun untuk {$employee->full_name} ({$employee->employee_index}) sudah aktif. Silakan langsung login dengan password Anda atau gunakan fitur 'Lupa password?' jika lupa.",
+                'employee' => [
+                    'employee_index' => $employee->employee_index,
+                    'full_name' => $employee->full_name,
+                    'unit' => $employee->unit,
+                    'position' => $employee->position,
+                ],
+            ]);
+        }
+
+        return response()->json([
+            'found' => true,
+            'can_activate' => true,
+            'message' => 'Data karyawan ditemukan. Silakan lengkapi kontak dan tentukan password akun Anda.',
+            'employee' => [
+                'id' => $employee->id,
+                'employee_index' => $employee->employee_index,
+                'full_name' => $employee->full_name,
+                'employee_level' => $employee->employee_level,
+                'position' => $employee->position,
+                'unit' => $employee->unit,
+                'division' => $employee->division,
+                'email' => $employee->email ?? '',
+                'phone' => $employee->phone ?? '',
+            ],
+        ]);
+    }
+
+    /**
+     * Proses buat & aktivasi akun mandiri oleh karyawan baru.
+     */
+    public function registerAccount(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'employee_index' => ['required', 'string', 'exists:employees,employee_index'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ], [
+            'employee_index.required' => 'Index Karyawan wajib dipilih.',
+            'employee_index.exists' => 'Index Karyawan tidak terdaftar.',
+            'email.email' => 'Format email tidak valid.',
+            'password.required' => 'Password baru wajib diisi.',
+            'password.min' => 'Password minimal harus 8 karakter.',
+            'password.confirmed' => 'Konfirmasi password tidak cocok.',
+        ]);
+
+        $employee = Employee::where('employee_index', trim($request->input('employee_index')))
+            ->where('is_active', true)
+            ->firstOrFail();
+
+        $user = $employee->user;
+        if ($user && ! $user->must_change_password) {
+            throw ValidationException::withMessages([
+                'employee_index' => 'Akun untuk karyawan ini sudah aktif sebelumnya. Silakan login atau gunakan Lupa Password.',
+            ]);
+        }
+
+        // Perbarui data email dan nomor hp jika diisi
+        $updateData = [];
+        if ($request->filled('email')) {
+            $updateData['email'] = trim($request->input('email'));
+        }
+        if ($request->filled('phone')) {
+            $updateData['phone'] = trim($request->input('phone'));
+        }
+        if (! empty($updateData)) {
+            $employee->update($updateData);
+        }
+
+        // Buat atau perbarui akun User
+        if (! $user) {
+            $user = User::create([
+                'employee_id' => $employee->id,
+                'password' => Hash::make($request->input('password')),
+                'must_change_password' => false,
+            ]);
+        } else {
+            $user->update([
+                'password' => Hash::make($request->input('password')),
+                'must_change_password' => false,
+            ]);
+        }
+
+        // Berikan role peserta jika belum memiliki role
+        $participantRole = Role::where('code', Role::PARTICIPANT)->first();
+        if ($participantRole && ! $user->hasRole(Role::PARTICIPANT)) {
+            $user->roles()->syncWithoutDetaching([$participantRole->id]);
+        }
+
+        // Otomatis login ke sistem
+        Auth::login($user);
+        $request->session()->regenerate();
+        $user->update(['last_login_at' => now()]);
+        session(['active_role' => Role::PARTICIPANT]);
+
+        AuditLog::log(
+            action: 'SELF_REGISTER_ACCOUNT',
+            entityType: 'User',
+            entityId: $user->id,
+            reason: "Aktivasi mandiri akun untuk karyawan {$employee->full_name} ({$employee->employee_index})",
+            userId: $user->id
+        );
+
+        return redirect()->route('participant.dashboard')
+            ->with('success', "Akun Anda berhasil dibuat & diaktifkan! Selamat datang di BMG 2026, {$employee->full_name}.");
     }
 
     /**

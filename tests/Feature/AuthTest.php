@@ -135,4 +135,78 @@ class AuthTest extends TestCase
         $response->assertSessionHas('warning');
         $this->assertStringContainsString('tidak memiliki alamat email', session('warning'));
     }
+
+    public function test_check_employee_activation_for_unregistered_employee(): void
+    {
+        $response = $this->postJson('/register-account/check', [
+            'employee_index' => 'NONEXISTENT999',
+        ]);
+
+        $response->assertStatus(404);
+        $this->assertFalse($response->json('found'));
+    }
+
+    public function test_check_employee_activation_for_already_active_account(): void
+    {
+        // ADMIN001 is already active (must_change_password = false)
+        $response = $this->postJson('/register-account/check', [
+            'employee_index' => 'ADMIN001',
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertTrue($response->json('found'));
+        $this->assertFalse($response->json('can_activate'));
+    }
+
+    public function test_check_employee_activation_for_new_eligible_employee(): void
+    {
+        // EMP1001 has must_change_password = true
+        $response = $this->postJson('/register-account/check', [
+            'employee_index' => 'EMP1001',
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertTrue($response->json('found'));
+        $this->assertTrue($response->json('can_activate'));
+        $this->assertEquals('EMP1001', $response->json('employee.employee_index'));
+    }
+
+    public function test_employee_can_self_register_and_activate_account(): void
+    {
+        $employee = Employee::create([
+            'employee_index' => 'EMP9998',
+            'full_name' => 'Karyawan Baru Fresh',
+            'employee_level' => 'Technician',
+            'position' => 'Boiler Operator',
+            'unit' => 'MFG',
+            'division' => 'Engineering',
+            'is_active' => true,
+        ]);
+
+        $response = $this->post('/register-account', [
+            'employee_index' => 'EMP9998',
+            'email' => 'fresh.operator@ggf.co.id',
+            'phone' => '081299998888',
+            'password' => 'PasswordBaru123!',
+            'password_confirmation' => 'PasswordBaru123!',
+        ]);
+
+        $this->assertAuthenticated();
+        $response->assertRedirect('/participant/dashboard');
+
+        $employee->refresh();
+        $this->assertEquals('fresh.operator@ggf.co.id', $employee->email);
+        $this->assertEquals('081299998888', $employee->phone);
+
+        $user = $employee->user;
+        $this->assertNotNull($user);
+        $this->assertFalse($user->must_change_password);
+        $this->assertTrue(Hash::check('PasswordBaru123!', $user->password));
+        $this->assertTrue($user->hasRole('participant'));
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'SELF_REGISTER_ACCOUNT',
+            'user_id' => $user->id,
+        ]);
+    }
 }
