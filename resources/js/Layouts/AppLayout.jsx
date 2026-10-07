@@ -23,12 +23,13 @@ import {
 import clsx from 'clsx';
 import Toast from '../Components/Toast';
 
-export default function AppLayout({ title, header, children }) {
-    const { auth, flash, appName } = usePage().props;
+export default function AppLayout({ title, header, hero, children }) {
+    const { auth, flash, appName, branding } = usePage().props;
     const user = auth?.user;
     const employee = user?.employee;
     const activeRole = user?.active_role || 'participant';
     const roles = user?.roles || [];
+    const headerBg = branding?.appHeaderBackgroundImage || '/images/login-bg-plantation.jpg';
 
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
@@ -62,38 +63,38 @@ export default function AppLayout({ title, header, children }) {
             case 'admin':
                 return [
                     { name: 'Dashboard Admin', href: '/admin/dashboard', icon: LayoutDashboard },
-                    { name: 'Master Karyawan', href: '/admin/employees', icon: Users, badge: 'Aktif' },
-                    { name: 'Konfigurasi Event', href: '/admin/events', icon: Settings, badge: 'Aktif' },
-                    { name: 'Evaluator & Penugasan', href: '/admin/assignments', icon: UserCheck, badge: 'Aktif' },
-                    { name: 'Seleksi Convention', href: '/admin/selection', icon: Award, badge: 'Phase 5' },
-                    { name: 'Rekap & Pemenang', href: '/admin/recap', icon: Award, badge: 'Phase 6' },
-                    { name: 'Monitoring Project', href: '/admin/dashboard', icon: FileText, badge: 'Aktif' },
-                    { name: 'Audit Log', href: '/admin/audit-logs', icon: Shield, badge: 'Aktif' },
+                    { name: 'Master Karyawan', href: '/admin/employees', icon: Users },
+                    { name: 'Konfigurasi Event', href: '/admin/events', icon: Settings },
+                    { name: 'Evaluator & Penugasan', href: '/admin/assignments', icon: UserCheck },
+                    { name: 'Seleksi Convention', href: '/admin/selection', icon: Award },
+                    { name: 'Rekap & Pemenang', href: '/admin/recap', icon: Award },
+                    { name: 'Monitoring Project', href: '/admin/dashboard', icon: FileText },
+                    { name: 'Audit Log', href: '/admin/audit-logs', icon: Shield },
                 ];
             case 'verifier':
                 return [
                     { name: 'Dashboard Verifikasi', href: '/verifier/dashboard', icon: LayoutDashboard },
                     { name: 'Semua Project Di-assign', href: '/verifier/dashboard', icon: CheckSquare },
-                    { name: 'Perlu Verifikasi (Baru)', href: '/verifier/dashboard?status=submitted', icon: Clock, badge: 'Baru' },
+                    { name: 'Perlu Verifikasi (Baru)', href: '/verifier/dashboard?status=submitted', icon: Clock },
                     { name: 'Sedang Diverifikasi', href: '/verifier/dashboard?status=in_verification', icon: FileCheck },
                     { name: 'Sudah Terverifikasi', href: '/verifier/dashboard?status=verified', icon: Award },
-                    { name: 'Seleksi Convention', href: '/verifier/selection', icon: Award, badge: 'Phase 5' },
+                    { name: 'Seleksi Convention', href: '/verifier/selection', icon: Award },
                     { name: 'Rekap & Pemenang', href: '/verifier/recap', icon: BarChart3 },
                 ];
             case 'judge':
                 return [
                     { name: 'Dashboard Juri', href: '/judge/dashboard', icon: LayoutDashboard },
-                    { name: 'Penilaian Convention', href: '/judge/dashboard', icon: Award, badge: 'Phase 5' },
+                    { name: 'Penilaian Convention', href: '/judge/dashboard', icon: Award },
                 ];
             case 'viewer':
                 return [
                     { name: 'Executive Dashboard', href: '/viewer/dashboard', icon: BarChart3 },
-                    { name: 'Rekap & Leaderboard', href: '/viewer/recap', icon: Award, badge: 'Phase 6' },
+                    { name: 'Rekap & Leaderboard', href: '/viewer/recap', icon: Award },
                 ];
             default: // participant
                 return [
                     { name: 'Beranda Saya', href: '/participant/dashboard', icon: LayoutDashboard },
-                    { name: 'Registrasi Project Baru', href: '/participant/projects/create', icon: FileText, badge: 'Daftar' },
+                    { name: 'Registrasi Project Baru', href: '/participant/projects/create', icon: FileText },
                 ];
         }
     };
@@ -105,7 +106,12 @@ export default function AppLayout({ title, header, children }) {
             <Toast flash={flash} />
 
             {/* TOP HEADER */}
-            <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80">
+            <header className={clsx(
+                'sticky top-0 z-40 transition-colors duration-200',
+                hero
+                    ? 'bg-slate-950/80 backdrop-blur-md border-b border-white/10 text-white shadow-sm'
+                    : 'bg-white/95 backdrop-blur-md border-b border-slate-200/80'
+            )}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16">
                         {/* Logo & Brand */}
@@ -113,24 +119,36 @@ export default function AppLayout({ title, header, children }) {
                             <button
                                 type="button"
                                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                                className="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100 touch-target"
+                                className={clsx(
+                                    'lg:hidden p-2 rounded-lg touch-target transition-colors',
+                                    hero ? 'text-white/80 hover:bg-white/10' : 'text-slate-600 hover:bg-slate-100'
+                                )}
                             >
                                 {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
                             </button>
                             <Link href="/" className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-800 via-emerald-600 to-green-500 flex items-center justify-center text-white font-black text-lg shadow-sm shadow-emerald-700/20">
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-700 via-emerald-500 to-teal-400 flex items-center justify-center text-white font-black text-lg shadow-sm shadow-emerald-500/30">
                                     B
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <span className="font-extrabold text-base tracking-tight text-slate-900">
+                                        <span className={clsx(
+                                            'font-extrabold text-base tracking-tight',
+                                            hero ? 'text-white' : 'text-slate-900'
+                                        )}>
                                             {appName}
                                         </span>
-                                        <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 rounded">
-                                            2026
+                                        <span className={clsx(
+                                            'text-[10px] font-bold px-1.5 py-0.5 rounded',
+                                            hero ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-emerald-100 text-emerald-800'
+                                        )}>
+                                            2027
                                         </span>
                                     </div>
-                                    <p className="text-[11px] text-slate-400 font-medium -mt-0.5">Great Giant Foods</p>
+                                    <p className={clsx(
+                                        'text-[11px] font-medium -mt-0.5',
+                                        hero ? 'text-slate-300' : 'text-slate-400'
+                                    )}>Great Giant Foods</p>
                                 </div>
                             </Link>
                         </div>
@@ -143,13 +161,18 @@ export default function AppLayout({ title, header, children }) {
                                     <button
                                         type="button"
                                         onClick={() => setIsRoleMenuOpen(!isRoleMenuOpen)}
-                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/70 text-emerald-900 text-xs font-semibold transition-all touch-target"
+                                        className={clsx(
+                                            'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all touch-target',
+                                            hero
+                                                ? 'bg-white/10 hover:bg-white/15 border border-white/20 text-white'
+                                                : 'border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/70 text-emerald-900'
+                                        )}
                                         aria-label="Pilih Peran"
                                     >
-                                        <Shield className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                                        <Shield className={clsx('w-3.5 h-3.5 shrink-0', hero ? 'text-emerald-400' : 'text-emerald-700')} />
                                         <span className="hidden sm:inline">Peran:</span>
                                         <span className="max-w-[120px] truncate">{roleLabels[activeRole] || activeRole}</span>
-                                        <ChevronDown className="w-3.5 h-3.5 text-emerald-700" />
+                                        <ChevronDown className={clsx('w-3.5 h-3.5', hero ? 'text-emerald-400' : 'text-emerald-700')} />
                                     </button>
 
                                     {isRoleMenuOpen && (
@@ -179,29 +202,47 @@ export default function AppLayout({ title, header, children }) {
                                     )}
                                 </div>
                             ) : (
-                                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-slate-700 text-xs font-medium">
-                                    <Shield className="w-3.5 h-3.5 text-slate-500" />
+                                <div className={clsx(
+                                    'hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium',
+                                    hero ? 'bg-white/10 border border-white/20 text-white' : 'bg-slate-100 border border-slate-200 text-slate-700'
+                                )}>
+                                    <Shield className={clsx('w-3.5 h-3.5', hero ? 'text-emerald-400' : 'text-slate-500')} />
                                     <span>{roleLabels[activeRole] || activeRole}</span>
                                 </div>
                             )}
 
                             {/* User Profile Pill */}
-                            <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
-                                <div className="w-8 h-8 rounded-full bg-slate-200 border border-slate-300 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0 uppercase">
+                            <div className={clsx(
+                                'flex items-center gap-2.5 pl-2 border-l',
+                                hero ? 'border-white/20' : 'border-slate-200'
+                            )}>
+                                <div className={clsx(
+                                    'w-8 h-8 rounded-full font-bold text-xs flex items-center justify-center shrink-0 uppercase',
+                                    hero ? 'bg-emerald-600/60 border border-emerald-400/40 text-white' : 'bg-slate-200 border border-slate-300 text-slate-700'
+                                )}>
                                     {employee?.full_name?.charAt(0) || 'U'}
                                 </div>
                                 <div className="hidden md:block text-left">
-                                    <p className="text-xs font-bold text-slate-800 truncate max-w-[150px]">
+                                    <p className={clsx(
+                                        'text-xs font-bold truncate max-w-[150px]',
+                                        hero ? 'text-white' : 'text-slate-800'
+                                    )}>
                                         {employee?.full_name || 'Pengguna'}
                                     </p>
-                                    <p className="text-[11px] text-slate-400 font-mono">
+                                    <p className={clsx(
+                                        'text-[11px] font-mono',
+                                        hero ? 'text-emerald-300/80' : 'text-slate-400'
+                                    )}>
                                         {employee?.employee_index} · {employee?.unit || 'GGF'}
                                     </p>
                                 </div>
                                 <button
                                     onClick={handleLogout}
                                     title="Keluar"
-                                    className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors touch-target"
+                                    className={clsx(
+                                        'p-2 rounded-lg transition-colors touch-target',
+                                        hero ? 'text-slate-300 hover:text-rose-400 hover:bg-white/10' : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
+                                    )}
                                 >
                                     <LogOut className="w-4 h-4" />
                                 </button>
@@ -211,74 +252,98 @@ export default function AppLayout({ title, header, children }) {
                 </div>
             </header>
 
-            {/* MAIN APP CONTAINER */}
-            <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex gap-8">
-                {/* DESKTOP SIDEBAR */}
-                <aside className="hidden lg:block w-64 shrink-0">
-                    <div className="sticky top-24 space-y-6">
-                        {/* Unit info card */}
-                        <div className="p-4 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xs">
-                            <div className="flex items-center gap-2 text-xs text-slate-300 mb-2 font-medium">
-                                <Building2 className="w-4 h-4 text-emerald-400" />
-                                <span>Unit: {employee?.unit || 'GGF HO'}</span>
-                            </div>
-                            <h4 className="text-sm font-bold text-white truncate">{employee?.position || 'Karyawan'}</h4>
-                            <p className="text-xs text-slate-400 truncate">{employee?.division || 'Divisi Operational'}</p>
-                        </div>
+            {/* HERO BANNER SECTION (ORGANIC ECO-GLASSMORPHISM) */}
+            {hero && (
+                <div className="relative overflow-hidden bg-slate-950 text-white">
+                    {/* Background scenic photo with subtle zoom */}
+                    <div
+                        className="absolute inset-0 bg-cover bg-center transition-all duration-700"
+                        style={{ backgroundImage: `url("${headerBg}")` }}
+                    />
+                    {/* Dual Vignette & Ambient Gradient */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-950/50 to-slate-950/85 backdrop-blur-[0.5px]" />
+                    <div className="absolute inset-0 bg-radial-gradient from-emerald-500/15 via-transparent to-transparent pointer-events-none" />
 
-                        {/* Navigation Links */}
-                        <nav className="space-y-1">
-                            <div className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                                Navigasi {roleLabels[activeRole]}
-                            </div>
-                            {navItems.map((item, idx) => {
-                                const Icon = item.icon;
-                                const isActive = window.location.pathname === item.href;
-                                return (
-                                    <Link
-                                        key={idx}
-                                        href={item.href}
-                                        className={clsx(
-                                            'flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all group',
-                                            isActive
-                                                ? 'bg-emerald-600 text-white shadow-xs shadow-emerald-600/30'
-                                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                                        )}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <Icon className={clsx('w-4 h-4', isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600')} />
-                                            <span>{item.name}</span>
-                                        </div>
-                                        {item.badge && (
-                                            <span
-                                                className={clsx(
-                                                    'text-[10px] px-1.5 py-0.5 rounded font-bold',
-                                                    isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-                                                )}
-                                            >
-                                                {item.badge}
-                                            </span>
-                                        )}
-                                    </Link>
-                                );
-                            })}
-                        </nav>
+                    {/* Hero Content */}
+                    <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-12">
+                        {hero}
                     </div>
-                </aside>
+                </div>
+            )}
 
-                {/* MAIN CONTENT AREA */}
-                <main className="flex-1 min-w-0 pb-20 lg:pb-8">
-                    {header && (
-                        <div className="mb-6">
-                            {typeof header === 'string' ? (
-                                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{header}</h1>
-                            ) : (
-                                header
-                            )}
+            {/* MAIN APP CONTAINER */}
+            <div className={clsx(
+                'flex-1 flex flex-col',
+                hero ? '-mt-6 rounded-t-[28px] sm:rounded-t-[36px] bg-slate-50 pt-6 shadow-[0_-12px_30px_rgba(0,0,0,0.08)] relative z-20' : ''
+            )}>
+                <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 flex-1 flex gap-8">
+                    {/* DESKTOP SIDEBAR */}
+                    <aside className="hidden lg:block w-64 shrink-0">
+                        <div className="sticky top-24 space-y-6">
+                            {/* Unit info card */}
+                            <div className="p-4 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xs">
+                                <div className="flex items-center gap-2 text-xs text-slate-300 mb-2 font-medium">
+                                    <Building2 className="w-4 h-4 text-emerald-400" />
+                                    <span>Unit: {employee?.unit || 'GGF HO'}</span>
+                                </div>
+                                <h4 className="text-sm font-bold text-white truncate">{employee?.position || 'Karyawan'}</h4>
+                                <p className="text-xs text-slate-400 truncate">{employee?.division || 'Divisi Operational'}</p>
+                            </div>
+
+                            {/* Navigation Links */}
+                            <nav className="space-y-1">
+                                <div className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                                    Navigasi {roleLabels[activeRole]}
+                                </div>
+                                {navItems.map((item, idx) => {
+                                    const Icon = item.icon;
+                                    const isActive = window.location.pathname === item.href;
+                                    return (
+                                        <Link
+                                            key={idx}
+                                            href={item.href}
+                                            className={clsx(
+                                                'flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all group',
+                                                isActive
+                                                    ? 'bg-emerald-600 text-white shadow-xs shadow-emerald-600/30'
+                                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                            )}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <Icon className={clsx('w-4 h-4', isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600')} />
+                                                <span>{item.name}</span>
+                                            </div>
+                                            {item.badge && (
+                                                <span
+                                                    className={clsx(
+                                                        'text-[10px] px-1.5 py-0.5 rounded font-bold',
+                                                        isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                                                    )}
+                                                >
+                                                    {item.badge}
+                                                </span>
+                                            )}
+                                        </Link>
+                                    );
+                                })}
+                            </nav>
                         </div>
-                    )}
-                    {children}
-                </main>
+                    </aside>
+
+                    {/* MAIN CONTENT AREA */}
+                    <main className="flex-1 min-w-0 pb-20 lg:pb-8">
+                        {header && (
+                            <div className="mb-6">
+                                {typeof header === 'string' ? (
+                                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{header}</h1>
+                                ) : (
+                                    header
+                                )}
+                            </div>
+                        )}
+                        {children}
+                    </main>
+                </div>
             </div>
 
             {/* MOBILE BOTTOM NAVIGATION (PRD 5.6) */}

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AuditLog;
 use App\Models\Employee;
 use App\Models\Role;
+use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -28,7 +29,11 @@ class AuthController extends Controller
             return $this->redirectBasedOnRole(Auth::user());
         }
 
-        return Inertia::render('Auth/Login');
+        $backgroundImage = Setting::get('login_background_image', '/images/login-bg-default.jpg');
+
+        return Inertia::render('Auth/Login', [
+            'backgroundImage' => $backgroundImage,
+        ]);
     }
 
     /**

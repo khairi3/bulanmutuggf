@@ -68,6 +68,13 @@ class HandleInertiaRequests extends Middleware
                 'info' => fn () => $request->session()->get('info'),
             ],
             'appName' => config('app.name', 'Bulan Mutu GGF'),
+            'branding' => [
+                'loginBackgroundImage' => \App\Models\Setting::get('login_background_image', '/images/login-bg-default.jpg'),
+                'appHeaderBackgroundImage' => \App\Models\Setting::get('app_header_background_image', '/images/login-bg-plantation.jpg'),
+            ],
+            'certificates' => [
+                'isPublished' => \App\Models\Setting::get('certificate_published', '0') === '1',
+            ],
         ];
     }
 }

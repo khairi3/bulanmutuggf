@@ -89,11 +89,11 @@ export default function AdminDashboard({ stats }) {
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Panel Administrasi & Panitia L&D</h1>
-                        <p className="text-sm text-slate-500 mt-1">Sistem Pengelolaan Bulan Mutu GGF 2026 · Phase 1</p>
+                        <p className="text-sm text-slate-500 mt-1">Sistem Pengelolaan Bulan Mutu GGF 2027</p>
                     </div>
                     <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
                         <CheckCircle className="w-3.5 h-3.5" />
-                        <span>Phase 1 Setup Active</span>
+                        <span>Sistem Aktif</span>
                     </span>
                 </div>
             }
@@ -187,7 +187,7 @@ export default function AdminDashboard({ stats }) {
             <Modal
                 isOpen={isResetModalOpen}
                 onClose={() => setIsResetModalOpen(false)}
-                title="Reset Password Karyawan (AUTH-03)"
+                title="Reset Password Karyawan"
                 description={`Reset password sementara untuk karyawan ${selectedUser?.employee?.full_name}`}
                 footer={
                     <>

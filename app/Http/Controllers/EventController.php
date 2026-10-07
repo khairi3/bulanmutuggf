@@ -28,6 +28,18 @@ class EventController extends Controller
         return Inertia::render('Admin/Events/Index', [
             'events' => $events,
             'selectedEvent' => $selectedEvent,
+            'loginBackgroundImage' => \App\Models\Setting::get('login_background_image', '/images/login-bg-default.jpg'),
+            'appHeaderBackgroundImage' => \App\Models\Setting::get('app_header_background_image', '/images/login-bg-plantation.jpg'),
+            'certificateSettings' => [
+                'isPublished' => \App\Models\Setting::get('certificate_published', '0') === '1',
+                'signatory1Name' => \App\Models\Setting::get('certificate_signatory1_name', \App\Models\Setting::get('certificate_signatory_name', 'Tommy Wattimena')),
+                'signatory1Title' => \App\Models\Setting::get('certificate_signatory1_title', \App\Models\Setting::get('certificate_signatory_title', 'Managing Director Great Giant Foods')),
+                'signatory2Name' => \App\Models\Setting::get('certificate_signatory2_name', 'Steering Committee Chairman'),
+                'signatory2Title' => \App\Models\Setting::get('certificate_signatory2_title', 'Head of Corporate Quality & CI'),
+                'templateImage' => \App\Models\Setting::get('certificate_template_image', null),
+                'showSystemTitle' => \App\Models\Setting::get('certificate_show_system_title', '0') === '1',
+                'recipientNameTop' => (int) \App\Models\Setting::get('certificate_recipient_name_top', '107'),
+            ],
         ]);
     }
 
@@ -62,11 +74,12 @@ class EventController extends Controller
                 'final_weight_judging' => $request->input('final_weight_judging'),
             ]);
 
-            // Default streams initialization (CIC, K3, ENERGY)
+            // Default streams initialization (CIC, K3, ENERGY, TPM)
             $streams = [
                 ['code' => Stream::CODE_CIC, 'name' => 'Continuous Improvement Convention (CIC)', 'pattern' => '{LEVEL}{IMPROVEMENT}{AREA}-{NNN}'],
                 ['code' => Stream::CODE_K3, 'name' => 'Bulan K3 (Keselamatan & Kesehatan Kerja)', 'pattern' => 'SIGAP-{NNN}'],
                 ['code' => Stream::CODE_ENERGY, 'name' => 'Energy Management Implementation', 'pattern' => 'ENRG-{NNN}'],
+                ['code' => Stream::CODE_TPM, 'name' => 'Total Productive Maintenance (TPM)', 'pattern' => 'TPM-{NNN}'],
             ];
 
             foreach ($streams as $s) {
@@ -197,5 +210,55 @@ class EventController extends Controller
         );
 
         return back()->with('success', "Aturan tim stream {$stream->name} berhasil disimpan.");
+    }
+
+    /**
+     * Create a new stream for an event (CFG-02).
+     */
+    public function storeStream(Request $request, Event $event): RedirectResponse
+    {
+        $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'code' => ['required', 'string', 'max:20'],
+            'code_pattern' => ['required', 'string', 'max:100'],
+            'team_min' => ['required', 'integer', 'min:1', 'max:20'],
+            'team_max' => ['required', 'integer', 'min:1', 'max:20', 'gte:team_min'],
+            'max_projects_per_employee' => ['required', 'integer', 'min:1', 'max:10'],
+        ]);
+
+        $stream = DB::transaction(function () use ($request, $event) {
+            $stream = $event->streams()->create([
+                'name' => $request->input('name'),
+                'code' => strtoupper(trim($request->input('code'))),
+                'code_pattern' => $request->input('code_pattern'),
+                'team_min' => $request->input('team_min'),
+                'team_max' => $request->input('team_max'),
+                'max_projects_per_employee' => $request->input('max_projects_per_employee'),
+                'is_active' => true,
+            ]);
+
+            // Create default phases
+            $phases = ['registration', 'verification', 'selection', 'finalisation', 'judging', 'announcement'];
+            foreach ($phases as $phaseType) {
+                $stream->phases()->create([
+                    'phase_type' => $phaseType,
+                    'start_at' => now(),
+                    'end_at' => now()->addMonths(2),
+                    'is_locked' => false,
+                ]);
+            }
+
+            AuditLog::log(
+                action: 'CREATE_STREAM',
+                entityType: 'Stream',
+                entityId: $stream->id,
+                after: $stream->toArray(),
+                reason: "Menambahkan stream baru: {$stream->name} ke event {$event->name}"
+            );
+
+            return $stream;
+        });
+
+        return back()->with('success', "Stream perlombaan {$stream->name} berhasil ditambahkan!");
     }
 }

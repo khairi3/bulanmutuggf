@@ -28,8 +28,50 @@ import {
     ExternalLink,
     Clock,
     Plus,
-    Eye
+    Eye,
 } from 'lucide-react';
+
+const parseRubricDetails = (rubric) => {
+    if (!rubric) return null;
+
+    let evidence = null;
+    let pass = null;
+    let followUp = null;
+    let notPass = null;
+
+    // Extract Bukti di Lapangan
+    const evidenceMatch = rubric.match(/(?:\[Bukti di Lapangan\]|Bukti di Lapangan):\s*([^•\n]+)/i);
+    if (evidenceMatch) {
+        evidence = evidenceMatch[1].trim();
+    }
+
+    // Extract Pass
+    const passMatch = rubric.match(/(?:•\s*PASS|•\s*Pass|\bPASS|\bPass)\s*(?:\([^)]*\))?:\s*([^•\n]+)/i);
+    if (passMatch) {
+        pass = passMatch[1].trim();
+    }
+
+    // Extract Need Follow Up
+    const followUpMatch = rubric.match(/(?:•\s*Need Follow Up|\bNeed Follow Up)\s*(?:\([^)]*\))?:\s*([^•\n]+)/i);
+    if (followUpMatch) {
+        followUp = followUpMatch[1].trim();
+    }
+
+    // Extract Not Pass or No Pass
+    const notPassMatch = rubric.match(/(?:•\s*Not Pass|•\s*No Pass|\bNot Pass|\bNo Pass)\s*(?:\([^)]*\))?:\s*([^•\n]+)/i);
+    if (notPassMatch) {
+        notPass = notPassMatch[1].trim();
+    }
+
+    return {
+        evidence,
+        pass,
+        followUp,
+        notPass,
+        noPass: notPass,
+        isStandard: !!(pass || followUp || notPass || evidence),
+    };
+};
 
 export default function VerifierProjectShow({
     project,
@@ -49,13 +91,13 @@ export default function VerifierProjectShow({
 
     const isScoreLocked = myScoreSheet?.status === 'submitted';
 
-    // 1. Scoring Form State
+    // 1. Scoring Form State (Quantification: Pass = 5, Need Follow Up = 3, Not Pass = 1)
     const initialScores = useMemo(() => {
         const map = {};
         scoringParameters.forEach((param) => {
             const existingItem = myScoreSheet?.items?.find((item) => item.parameter_id === param.id);
             map[param.id] = {
-                score: existingItem?.score !== null && existingItem?.score !== undefined ? existingItem.score : 0,
+                score: existingItem?.score !== null && existingItem?.score !== undefined ? existingItem.score : null,
                 note: existingItem?.note || '',
             };
         });
@@ -64,25 +106,72 @@ export default function VerifierProjectShow({
 
     const [scores, setScores] = useState(initialScores);
 
-    // Live Weighted Total Calculation (VER-06)
-    const liveWeightedTotal = useMemo(() => {
-        let total = 0;
+    // Helper to evaluate quantitative status (Pass: 5, Need Follow Up: 3, Not Pass: 1)
+    const getEvaluationStatus = (rawScore) => {
+        if (rawScore === null || rawScore === undefined || rawScore === '' || isNaN(parseFloat(rawScore))) {
+            return null;
+        }
+        const val = parseFloat(rawScore);
+        // Compatibility for legacy 0-100 scale
+        if (val > 5) {
+            if (val >= 85) return { key: 'pass', label: 'Pass', score: 5, color: 'emerald' };
+            if (val >= 50) return { key: 'followUp', label: 'Need Follow Up', score: 3, color: 'amber' };
+            return { key: 'notPass', label: 'Not Pass', score: 1, color: 'rose' };
+        }
+        // Quantification scale 1 to 5
+        if (val >= 4) return { key: 'pass', label: 'Pass', score: 5, color: 'emerald' };
+        if (val >= 2) return { key: 'followUp', label: 'Need Follow Up', score: 3, color: 'amber' };
+        return { key: 'notPass', label: 'Not Pass', score: 1, color: 'rose' };
+    };
+
+    // Qualitative status counts & quantitative score metrics
+    const { statusSummary, scoreMetrics } = useMemo(() => {
+        let pass = 0;
+        let followUp = 0;
+        let notPass = 0;
+        let unrated = 0;
+        let totalScore = 0;
+        let totalWeighted = 0;
+
         scoringParameters.forEach((param) => {
-            const scoreVal = parseFloat(scores[param.id]?.score) || 0;
-            const weightVal = parseFloat(param.weight) || 0;
-            total += scoreVal * (weightVal / 100);
+            const raw = scores[param.id]?.score;
+            const evalResult = getEvaluationStatus(raw);
+            if (!evalResult) {
+                unrated++;
+            } else {
+                if (evalResult.key === 'pass') pass++;
+                else if (evalResult.key === 'followUp') followUp++;
+                else notPass++;
+
+                totalScore += evalResult.score;
+                const weight = param.weight !== undefined && param.weight !== null ? parseFloat(param.weight) : (100 / (scoringParameters.length || 1));
+                totalWeighted += evalResult.score * (weight / 100);
+            }
         });
-        return Math.round(total * 100) / 100;
-    }, [scores, scoringParameters]);
+
+        const ratedCount = pass + followUp + notPass;
+        const maxTotalScore = (scoringParameters.length || 0) * 5;
+        const avgScore = ratedCount > 0 ? totalScore / ratedCount : 0;
+
+        return {
+            statusSummary: { pass, followUp, notPass, unrated },
+            scoreMetrics: {
+                totalScore,
+                maxTotalScore,
+                avgScore: Math.round(avgScore * 100) / 100,
+                totalWeighted: Math.round(totalWeighted * 100) / 100,
+                ratedCount,
+            }
+        };
+    }, [scoringParameters, scores]);
 
     const handleScoreChange = (paramId, value) => {
         if (isScoreLocked) return;
-        const numVal = Math.min(100, Math.max(0, parseFloat(value) || 0));
         setScores((prev) => ({
             ...prev,
             [paramId]: {
                 ...prev[paramId],
-                score: numVal,
+                score: value,
             },
         }));
     };
@@ -224,12 +313,12 @@ export default function VerifierProjectShow({
                             {isScoreLocked ? (
                                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-300">
                                     <Lock className="w-3.5 h-3.5 text-emerald-600" />
-                                    <span>Nilai Terkunci: {myScoreSheet?.total_weighted}</span>
+                                    <span>Verifikasi Terkunci</span>
                                 </div>
                             ) : (
-                                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300">
-                                    <Clock className="w-3.5 h-3.5 text-amber-600" />
-                                    <span>Skor Live: {liveWeightedTotal}</span>
+                                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300">
+                                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>Draf Verifikasi ({scoringParameters.length - missingParams.length}/{scoringParameters.length} Kriteria)</span>
                                 </div>
                             )}
                         </div>
@@ -340,7 +429,7 @@ export default function VerifierProjectShow({
                                     <div>
                                         <h4 className="text-xs font-bold text-emerald-900">Penilaian Telah Disubmit Final & Dikunci</h4>
                                         <p className="text-xs text-emerald-700 mt-0.5">
-                                            Nilai telah tersimpan pada {myScoreSheet?.submitted_at}. Jika perlu koreksi, hubungi Administrator untuk membuka kunci nilai (ADM-04).
+                                            Nilai telah tersimpan pada {myScoreSheet?.submitted_at}. Jika perlu koreksi, hubungi Administrator untuk membuka kunci nilai.
                                         </p>
                                     </div>
                                 </div>
@@ -348,21 +437,40 @@ export default function VerifierProjectShow({
 
                             {scoringParameters.length > 0 ? (
                                 scoringParameters.map((param, index) => {
-                                    const currentScore = scores[param.id]?.score ?? 0;
+                                    const rawScore = scores[param.id]?.score;
                                     const currentNote = scores[param.id]?.note ?? '';
-                                    const weightedContribution = ((currentScore * param.weight) / 100).toFixed(2);
+                                    const rubricData = parseRubricDetails(param.rubric);
+                                    const evalResult = getEvaluationStatus(rawScore);
+
+                                    // Determine qualitative status & quantification
+                                    const isPass = evalResult?.key === 'pass';
+                                    const isFollowUp = evalResult?.key === 'followUp';
+                                    const isNotPass = evalResult?.key === 'notPass';
 
                                     return (
                                         <Card key={param.id} className="relative overflow-hidden">
                                             <div className="flex items-start justify-between gap-4">
-                                                <div>
+                                                <div className="grow">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 text-xs font-black flex items-center justify-center">
+                                                        <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 text-xs font-black flex items-center justify-center shrink-0">
                                                             {index + 1}
                                                         </span>
                                                         <h3 className="text-sm font-bold text-slate-900">{param.name}</h3>
                                                     </div>
-                                                    {param.rubric && (
+
+                                                    {/* Bukti yang Harus Dilihat di Lapangan */}
+                                                    {rubricData?.evidence && (
+                                                        <div className="mt-2.5 ml-8 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs flex items-start gap-2">
+                                                            <Eye className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                                                            <div>
+                                                                <span className="font-bold text-slate-700">Bukti yang Harus Dilihat:</span>{' '}
+                                                                <span className="text-slate-600">{rubricData.evidence}</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Fallback plain rubric if not standard format */}
+                                                    {param.rubric && !rubricData?.isStandard && (
                                                         <p className="text-xs text-slate-500 mt-1 pl-8">
                                                             {param.rubric}
                                                         </p>
@@ -370,63 +478,162 @@ export default function VerifierProjectShow({
                                                 </div>
 
                                                 <div className="text-right shrink-0">
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-700">
-                                                        Bobot: {param.weight}%
-                                                    </span>
-                                                    <div className="text-[11px] text-emerald-600 font-semibold mt-1">
-                                                        Poin: +{weightedContribution}
-                                                    </div>
+                                                    {isPass ? (
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                                            <span>Pass (Skor: 5)</span>
+                                                        </span>
+                                                    ) : isFollowUp ? (
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                                            <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                                                            <span>Need Follow Up (Skor: 3)</span>
+                                                        </span>
+                                                    ) : isNotPass ? (
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                                                            <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                                                            <span>Not Pass (Skor: 1)</span>
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-500">
+                                                            Belum Ditentukan
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
 
-                                            {/* Score Slider & Numeric Input */}
-                                            <div className="mt-4 pt-4 border-t border-slate-100 space-y-3 pl-8">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="flex-1">
-                                                        <input
-                                                            type="range"
-                                                            min="0"
-                                                            max="100"
-                                                            step="1"
-                                                            disabled={isScoreLocked}
-                                                            value={currentScore}
-                                                            onChange={(e) => handleScoreChange(param.id, e.target.value)}
-                                                            className="w-full accent-emerald-600 disabled:opacity-50 cursor-pointer"
-                                                        />
-                                                        <div className="flex justify-between text-[10px] text-slate-400 font-mono mt-1">
-                                                            <span>0</span>
-                                                            <span>25</span>
-                                                            <span>50</span>
-                                                            <span>75</span>
-                                                            <span>100</span>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="w-24 shrink-0">
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            max="100"
-                                                            disabled={isScoreLocked}
-                                                            value={currentScore}
-                                                            onChange={(e) => handleScoreChange(param.id, e.target.value)}
-                                                            className="w-full text-center font-mono font-bold text-sm py-1.5 border border-slate-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-100 disabled:text-slate-500"
-                                                        />
-                                                    </div>
+                                            {/* 3 Status Choice Cards (Pass / Need Follow Up / Not Pass) */}
+                                            <div className="mt-4 pt-3.5 border-t border-slate-100 pl-8">
+                                                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                                                    Pilih Kategori Status Lapangan & Skor Kuantifikasi:
                                                 </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                                    {/* PASS (Skor 5) */}
+                                                    <button
+                                                        type="button"
+                                                        disabled={isScoreLocked}
+                                                        onClick={() => handleScoreChange(param.id, 5)}
+                                                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                                                            isPass
+                                                                ? 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
+                                                                : 'bg-white border-slate-200 hover:border-emerald-300 hover:bg-slate-50/80'
+                                                        } ${isScoreLocked ? 'cursor-not-allowed opacity-75' : ''}`}
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs font-black text-emerald-800 flex items-center gap-1.5">
+                                                                <span className={`w-2.5 h-2.5 rounded-full ${isPass ? 'bg-emerald-500 ring-2 ring-emerald-300' : 'bg-slate-300'}`} />
+                                                                Pass
+                                                            </span>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300">
+                                                                    Skor: 5
+                                                                </span>
+                                                                {isPass && (
+                                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-600 text-white">
+                                                                        Terpilih
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        {rubricData?.pass ? (
+                                                            <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">
+                                                                {rubricData.pass}
+                                                            </p>
+                                                        ) : (
+                                                            <p className="text-[11px] text-slate-400 mt-1 italic">
+                                                                Memenuhi kriteria verifikasi lapangan dengan baik.
+                                                            </p>
+                                                        )}
+                                                    </button>
+
+                                                    {/* Need Follow Up (Skor 3) */}
+                                                    <button
+                                                        type="button"
+                                                        disabled={isScoreLocked}
+                                                        onClick={() => handleScoreChange(param.id, 3)}
+                                                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                                                            isFollowUp
+                                                                ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-500/20 shadow-xs'
+                                                                : 'bg-white border-slate-200 hover:border-amber-300 hover:bg-slate-50/80'
+                                                        } ${isScoreLocked ? 'cursor-not-allowed opacity-75' : ''}`}
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs font-black text-amber-800 flex items-center gap-1.5">
+                                                                <span className={`w-2.5 h-2.5 rounded-full ${isFollowUp ? 'bg-amber-500 ring-2 ring-amber-300' : 'bg-slate-300'}`} />
+                                                                Need Follow Up
+                                                            </span>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300">
+                                                                    Skor: 3
+                                                                </span>
+                                                                {isFollowUp && (
+                                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-600 text-white">
+                                                                        Terpilih
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        {rubricData?.followUp ? (
+                                                            <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">
+                                                                {rubricData.followUp}
+                                                            </p>
+                                                        ) : (
+                                                            <p className="text-[11px] text-slate-400 mt-1 italic">
+                                                                Terdapat catatan perbaikan atau verifikasi lanjutan.
+                                                            </p>
+                                                        )}
+                                                    </button>
+
+                                                    {/* Not Pass (Skor 1) */}
+                                                    <button
+                                                        type="button"
+                                                        disabled={isScoreLocked}
+                                                        onClick={() => handleScoreChange(param.id, 1)}
+                                                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                                                            isNotPass
+                                                                ? 'bg-rose-50/90 border-rose-500 ring-2 ring-rose-500/20 shadow-xs'
+                                                                : 'bg-white border-slate-200 hover:border-rose-300 hover:bg-slate-50/80'
+                                                        } ${isScoreLocked ? 'cursor-not-allowed opacity-75' : ''}`}
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs font-black text-rose-800 flex items-center gap-1.5">
+                                                                <span className={`w-2.5 h-2.5 rounded-full ${isNotPass ? 'bg-rose-500 ring-2 ring-rose-300' : 'bg-slate-300'}`} />
+                                                                Not Pass
+                                                            </span>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-rose-100 text-rose-900 border border-rose-300">
+                                                                    Skor: 1
+                                                                </span>
+                                                                {isNotPass && (
+                                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-600 text-white">
+                                                                        Terpilih
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        {(rubricData?.notPass || rubricData?.noPass) ? (
+                                                            <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">
+                                                                {rubricData.notPass || rubricData.noPass}
+                                                            </p>
+                                                        ) : (
+                                                            <p className="text-[11px] text-slate-400 mt-1 italic">
+                                                                Tidak memenuhi kriteria yang diverifikasi di lapangan.
+                                                            </p>
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </div>
 
                                                 {/* Optional Note */}
-                                                <div>
+                                                <div className="mt-3">
                                                     <input
                                                         type="text"
                                                         disabled={isScoreLocked}
-                                                        placeholder="Catatan / justifikasi penilaian untuk parameter ini (opsional)..."
+                                                        placeholder="Catatan / observasi lapangan untuk kriteria ini (opsional)..."
                                                         value={currentNote}
                                                         onChange={(e) => handleNoteChange(param.id, e.target.value)}
-                                                        className="w-full text-xs py-1.5 px-3 border border-slate-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 focus:bg-white disabled:bg-slate-100"
+                                                        className="w-full text-xs py-2 px-3 border border-slate-200 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 focus:bg-white disabled:bg-slate-100"
                                                     />
                                                 </div>
-                                            </div>
                                         </Card>
                                     );
                                 })
@@ -447,30 +654,102 @@ export default function VerifierProjectShow({
                         <div className="space-y-4 lg:sticky lg:top-6">
                             <Card className="border-t-4 border-t-emerald-600 shadow-sm">
                                 <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                                    Rekap Nilai Verifikasi
+                                    Rekap Hasil Verifikasi
                                 </h3>
 
-                                <div className="mt-4 p-4 rounded-xl bg-slate-900 text-white text-center">
-                                    <span className="text-[11px] text-slate-400 uppercase tracking-wider block font-semibold">
-                                        Total Nilai Tertimbang (0-100)
-                                    </span>
-                                    <div className="text-4xl font-black text-emerald-400 mt-1 tracking-tight font-mono">
-                                        {isScoreLocked ? myScoreSheet?.total_weighted : liveWeightedTotal}
+                                {/* Qualitative Status Summary Box */}
+                                <div className="mt-4 p-4 rounded-xl bg-slate-900 text-white">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
+                                            Distribusi & Skor
+                                        </span>
+                                        <span className="text-[11px] font-bold text-emerald-400 font-mono">
+                                            Total: {scoreMetrics.totalScore}/{scoreMetrics.maxTotalScore} pts
+                                        </span>
                                     </div>
-                                    <span className="text-[10px] text-slate-400 block mt-1">
-                                        {isScoreLocked ? 'Nilai final tersimpan' : 'Kalkulasi otomatis secara real-time'}
-                                    </span>
+                                    <div className="grid grid-cols-3 gap-2 text-center">
+                                        <div className="p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-500/30">
+                                            <span className="text-2xl font-black text-emerald-400 font-mono block">
+                                                {statusSummary.pass}
+                                            </span>
+                                            <span className="text-[10px] text-emerald-200 font-bold uppercase tracking-wider block">
+                                                Pass
+                                            </span>
+                                            <span className="text-[9px] text-emerald-400/90 font-mono font-bold mt-0.5 block">
+                                                5 Poin
+                                            </span>
+                                        </div>
+                                        <div className="p-2.5 rounded-lg bg-amber-950/60 border border-amber-500/30">
+                                            <span className="text-2xl font-black text-amber-400 font-mono block">
+                                                {statusSummary.followUp}
+                                            </span>
+                                            <span className="text-[10px] text-amber-200 font-bold uppercase tracking-wider block">
+                                                Follow Up
+                                            </span>
+                                            <span className="text-[9px] text-amber-400/90 font-mono font-bold mt-0.5 block">
+                                                3 Poin
+                                            </span>
+                                        </div>
+                                        <div className="p-2.5 rounded-lg bg-rose-950/60 border border-rose-500/30">
+                                            <span className="text-2xl font-black text-rose-400 font-mono block">
+                                                {statusSummary.notPass}
+                                            </span>
+                                            <span className="text-[10px] text-rose-200 font-bold uppercase tracking-wider block">
+                                                Not Pass
+                                            </span>
+                                            <span className="text-[9px] text-rose-400/90 font-mono font-bold mt-0.5 block">
+                                                1 Poin
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Overall Conclusion Badge */}
+                                    <div className="mt-3.5 pt-3 border-t border-slate-800 text-center">
+                                        {statusSummary.unrated > 0 ? (
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                                                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                                <span>{statusSummary.unrated} Kriteria Belum Dinilai</span>
+                                            </span>
+                                        ) : statusSummary.notPass > 0 ? (
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                                                <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                                                <span>Rekomendasi: Not Pass</span>
+                                            </span>
+                                        ) : statusSummary.followUp > 0 ? (
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                                <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                                                <span>Rekomendasi: Need Follow Up</span>
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                                <span>Rekomendasi: Lulus Verifikasi</span>
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="mt-4 space-y-2 text-xs">
                                     <div className="flex justify-between py-1.5 border-b border-slate-100">
-                                        <span className="text-slate-500">Jumlah Parameter:</span>
+                                        <span className="text-slate-500">Jumlah Kriteria:</span>
                                         <span className="font-bold text-slate-800">{scoringParameters.length} Item</span>
                                     </div>
                                     <div className="flex justify-between py-1.5 border-b border-slate-100">
-                                        <span className="text-slate-500">Total Bobot:</span>
+                                        <span className="text-slate-500">Kriteria Terisi:</span>
                                         <span className="font-bold text-slate-800">
-                                            {scoringParameters.reduce((acc, p) => acc + parseFloat(p.weight || 0), 0)}%
+                                            {scoringParameters.length - missingParams.length} dari {scoringParameters.length}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between py-1.5 border-b border-slate-100">
+                                        <span className="text-slate-500">Kuantifikasi Skor:</span>
+                                        <span className="font-bold text-slate-800 font-mono">
+                                            {scoreMetrics.totalScore} / {scoreMetrics.maxTotalScore} pts (Rata-rata: {scoreMetrics.avgScore.toFixed(2)})
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between py-1.5 border-b border-slate-100">
+                                        <span className="text-slate-500">Nilai Tertimbang:</span>
+                                        <span className="font-black text-emerald-700 font-mono">
+                                            {scoreMetrics.totalWeighted.toFixed(2)} / 5.00
                                         </span>
                                     </div>
                                     <div className="flex justify-between py-1.5 border-b border-slate-100">
@@ -479,7 +758,7 @@ export default function VerifierProjectShow({
                                             {isScoreLocked ? (
                                                 <span className="text-emerald-600">Submitted & Locked</span>
                                             ) : (
-                                                <span className="text-amber-600">Draft (Belum Submit)</span>
+                                                <span className="text-amber-600">Draf (Belum Disubmit)</span>
                                             )}
                                         </span>
                                     </div>
@@ -493,7 +772,7 @@ export default function VerifierProjectShow({
                                                 <div>
                                                     <p className="font-bold">Penilaian Belum Lengkap ({scoringParameters.length - missingParams.length}/{scoringParameters.length})</p>
                                                     <p className="text-[10px] text-amber-700 mt-0.5">
-                                                        Lengkapi nilai seluruh parameter sebelum melakukan Submit Final.
+                                                        Tentukan status seluruh kriteria sebelum melakukan Submit Final.
                                                     </p>
                                                 </div>
                                             </div>
@@ -507,7 +786,7 @@ export default function VerifierProjectShow({
                                             className="w-full justify-center"
                                         >
                                             <Save className="w-4 h-4 mr-2" />
-                                            <span>Simpan Draf Nilai</span>
+                                            <span>Simpan Draf Penilaian</span>
                                         </Button>
 
                                         <Button
@@ -521,7 +800,7 @@ export default function VerifierProjectShow({
                                             className="w-full justify-center"
                                         >
                                             <CheckCircle2 className="w-4 h-4 mr-2" />
-                                            <span>Submit Final Penilaian</span>
+                                            <span>Submit Final Verifikasi</span>
                                         </Button>
                                     </div>
                                 )}
@@ -534,7 +813,8 @@ export default function VerifierProjectShow({
                                 </h4>
                                 <ul className="text-[11px] text-slate-500 space-y-1.5 mt-2 list-disc list-inside">
                                     <li>Verifikasi lapangan mencakup validasi data, observasi proses, dan wawancara tim.</li>
-                                    <li>Nilai dapat disimpan draf kapan saja sebelum finalisasi.</li>
+                                    <li>Tentukan status & skor kuantifikasi: <b>Pass (5)</b>, <b>Need Follow Up (3)</b>, atau <b>Not Pass (1)</b> untuk setiap kriteria.</li>
+                                    <li>Catatan dapat ditambahkan untuk setiap kriteria jika diperlukan follow-up.</li>
                                     <li>Saat tombol <b>Submit Final</b> ditekan, form terkunci dan status project berpindah menjadi <b>Terverifikasi</b>.</li>
                                 </ul>
                             </Card>
@@ -709,7 +989,7 @@ export default function VerifierProjectShow({
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                         {/* Feedbacks timeline (2 cols) */}
                         <div className="lg:col-span-2 space-y-4">
-                            <Card title="Daftar Catatan Verifikator & Feedback Diskusi (PAR-09)">
+                            <Card title="Daftar Catatan Verifikator & Feedback Diskusi">
                                 <FeedbackThread
                                     feedbacks={feedbacks}
                                     isParticipant={false}
@@ -1014,25 +1294,73 @@ export default function VerifierProjectShow({
                         </div>
                     )}
 
-                    {/* Score summary */}
-                    <div className="p-4 rounded-xl bg-slate-900 text-white text-center">
-                        <span className="text-[11px] text-slate-400 uppercase tracking-wider block">
-                            Total Skor Tertimbang yang Akan Dikunci
-                        </span>
-                        <div className="text-3xl font-black text-emerald-400 mt-1 font-mono">
-                            {liveWeightedTotal} <span className="text-sm font-normal text-slate-400">/ 100</span>
+                    {/* Qualitative status & score summary */}
+                    <div className="p-4 rounded-xl bg-slate-900 text-white">
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
+                                Ringkasan Hasil Evaluasi Verifikasi
+                            </span>
+                            <span className="text-[11px] font-bold text-emerald-400 font-mono">
+                                Skor: {scoreMetrics.totalScore}/{scoreMetrics.maxTotalScore} pts (Tertimbang: {scoreMetrics.totalWeighted.toFixed(2)}/5.00)
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                            <div className="p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-500/30">
+                                <span className="text-2xl font-black text-emerald-400 font-mono block">
+                                    {statusSummary.pass}
+                                </span>
+                                <span className="text-[10px] text-emerald-200 font-bold uppercase tracking-wider block">
+                                    Pass (5 Pts)
+                                </span>
+                            </div>
+                            <div className="p-2.5 rounded-lg bg-amber-950/60 border border-amber-500/30">
+                                <span className="text-2xl font-black text-amber-400 font-mono block">
+                                    {statusSummary.followUp}
+                                </span>
+                                <span className="text-[10px] text-amber-200 font-bold uppercase tracking-wider block">
+                                    Follow Up (3 Pts)
+                                </span>
+                            </div>
+                            <div className="p-2.5 rounded-lg bg-rose-950/60 border border-rose-500/30">
+                                <span className="text-2xl font-black text-rose-400 font-mono block">
+                                    {statusSummary.notPass}
+                                </span>
+                                <span className="text-[10px] text-rose-200 font-bold uppercase tracking-wider block">
+                                    Not Pass (1 Pt)
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Overall Recommendation */}
+                        <div className="mt-3 pt-2.5 border-t border-slate-800 text-center">
+                            {statusSummary.notPass > 0 ? (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                                    <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                                    <span>Rekomendasi Akhir: Not Pass</span>
+                                </span>
+                            ) : statusSummary.followUp > 0 ? (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                    <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                                    <span>Rekomendasi Akhir: Need Follow Up</span>
+                                </span>
+                            ) : (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span>Rekomendasi Akhir: Lolos Verifikasi</span>
+                                </span>
+                            )}
                         </div>
                     </div>
 
                     {/* Breakdown table */}
                     <div>
-                        <span className="font-bold text-slate-700 block mb-1.5">Rincian Nilai per Parameter:</span>
-                        <div className="rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100 max-h-48 overflow-y-auto">
+                        <span className="font-bold text-slate-700 block mb-1.5">Rincian Status per Kriteria:</span>
+                        <div className="rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100 max-h-56 overflow-y-auto">
                             {scoringParameters.map((param, idx) => {
                                 const scoreVal = scores[param.id]?.score;
-                                const weightVal = parseFloat(param.weight) || 0;
-                                const pointVal = (parseFloat(scoreVal) || 0) * (weightVal / 100);
-                                const isFilled = scoreVal !== null && scoreVal !== undefined && scoreVal !== '' && !isNaN(parseFloat(scoreVal));
+                                const evalResult = getEvaluationStatus(scoreVal);
+                                const note = scores[param.id]?.note;
+
                                 return (
                                     <div key={param.id} className="p-2.5 flex items-center justify-between text-xs bg-slate-50/50">
                                         <div className="flex items-center gap-2">
@@ -1041,17 +1369,29 @@ export default function VerifierProjectShow({
                                             </span>
                                             <div>
                                                 <p className="font-semibold text-slate-800">{param.name}</p>
-                                                <p className="text-[10px] text-slate-500">Bobot: {param.weight}%</p>
+                                                {note && (
+                                                    <p className="text-[10px] text-slate-500 italic truncate max-w-xs">"{note}"</p>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            {isFilled ? (
-                                                <>
-                                                    <span className="font-mono font-bold text-slate-900">{scoreVal} / 100</span>
-                                                    <span className="text-[10px] text-emerald-600 block">+{pointVal.toFixed(2)} poin</span>
-                                                </>
+                                            {evalResult?.key === 'pass' ? (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                                    Pass (Skor: 5)
+                                                </span>
+                                            ) : evalResult?.key === 'followUp' ? (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                                    <AlertCircle className="w-3 h-3 text-amber-600" />
+                                                    Need Follow Up (Skor: 3)
+                                                </span>
+                                            ) : evalResult?.key === 'notPass' ? (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                                                    <AlertCircle className="w-3 h-3 text-rose-600" />
+                                                    Not Pass (Skor: 1)
+                                                </span>
                                             ) : (
-                                                <span className="text-[11px] font-bold text-rose-600">Belum Dinilai</span>
+                                                <span className="text-[11px] font-bold text-rose-600">Belum Ditentukan</span>
                                             )}
                                         </div>
                                     </div>
@@ -1063,7 +1403,7 @@ export default function VerifierProjectShow({
                     <div className={`p-2.5 rounded-lg border text-[11px] flex items-center justify-between ${
                         visits.length > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-600'
                     }`}>
-                        <span>Log Kunjungan Fisik / Lapangan (VER-04):</span>
+                        <span>Log Kunjungan Fisik / Lapangan:</span>
                         <span className="font-bold">
                             {visits.length > 0 ? `✓ Tercatat (${visits.length} visit)` : 'Belum Ada (Opsional)'}
                         </span>
@@ -1084,7 +1424,7 @@ export default function VerifierProjectShow({
                             onClick={() => handleSaveScores(true)}
                         >
                             <CheckCircle2 className="w-4 h-4 mr-2" />
-                            <span>Ya, Submit Final & Kunci Nilai</span>
+                            <span>Ya, Submit Final & Kunci Verifikasi</span>
                         </Button>
                     </div>
                 </div>

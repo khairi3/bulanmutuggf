@@ -33,9 +33,9 @@ class RecapService
         $stream->load('categoryDimensions.options');
         $dimension = $stream->rankingDimension();
 
-        // Bobot nilai akhir (CFG-08)
-        $vWeight = $stream->verification_weight ?: 30;
-        $jWeight = $stream->judging_weight ?: 70;
+        // Bobot nilai akhir: murni skor juri Convention Day (tanpa persentase bobot)
+        $vWeight = 0;
+        $jWeight = 100;
 
         // Ambil seluruh project yang masuk tahap penjurian/final
         $projects = $stream->projects()
@@ -56,7 +56,7 @@ class RecapService
 
         $dimensionOptions = $dimension ? $dimension->options : collect();
 
-        // Kalkulasi skor gabungan tiap project
+        // Kalkulasi skor tiap project
         $recapRows = $projects->map(function (Project $p) use ($dimension, $vWeight, $jWeight) {
             $option = $dimension ? $p->categories->firstWhere('dimension_id', $dimension->id) : null;
 
@@ -68,10 +68,8 @@ class RecapService
             $jSheets = $p->scoreSheets->where('stage', ScoringParameter::STAGE_JUDGING)->where('status', 'submitted');
             $judgingScore = $jSheets->isNotEmpty() ? (float) $jSheets->avg('total_weighted') : null;
 
-            // Final score gabungan: (vScore * vWeight / 100) + (jScore * jWeight / 100)
-            $computedV = $verificationScore !== null ? ($verificationScore * $vWeight) / 100 : 0;
-            $computedJ = $judgingScore !== null ? ($judgingScore * $jWeight) / 100 : 0;
-            $finalScore = round($computedV + $computedJ, 2);
+            // Nilai Akhir murni dari Penjurian Juri (100% Juri tanpa bobot persentase)
+            $finalScore = $judgingScore !== null ? round($judgingScore, 2) : 0.0;
 
             return [
                 'project' => $p,
@@ -124,11 +122,11 @@ class RecapService
     }
 
     /**
-     * Terapkan aturan Tie-Breaker resmi (REP-01) dan simpan ke final_results:
-     * 1. final_score DESC
-     * 2. judging_score DESC
-     * 3. finalised_at ASC
-     * 4. submitted_at ASC
+     * Terapkan aturan Tie-Breaker resmi dan simpan ke final_results:
+     * 1. final_score DESC (Nilai Juri)
+     * 2. verification_score DESC (Jika nilai juri sama, nilai verifikasi lapangan lebih tinggi menang)
+     * 3. finalised_at ASC (Waktu finalisasi materi lebih awal)
+     * 4. submitted_at ASC (Waktu registrasi lebih awal)
      */
     protected function applyTieBreakerAndRanking(
         Collection $rows,
@@ -138,16 +136,16 @@ class RecapService
         int $jWeight
     ): Collection {
         $sorted = $rows->sort(function ($a, $b) {
-            // 1. final_score DESC
+            // 1. final_score DESC (Nilai Juri)
             if ($a['final_score'] !== $b['final_score']) {
                 return $a['final_score'] < $b['final_score'] ? 1 : -1;
             }
 
-            // 2. Tie-break 1: judging_score DESC
-            $jA = $a['judging_score'] ?? -1;
-            $jB = $b['judging_score'] ?? -1;
-            if ($jA !== $jB) {
-                return $jA < $jB ? 1 : -1;
+            // 2. Tie-break 1: verification_score DESC (Verifikasi lapangan memecah seri)
+            $vA = $a['verification_score'] ?? -1;
+            $vB = $b['verification_score'] ?? -1;
+            if ($vA !== $vB) {
+                return $vA < $vB ? 1 : -1;
             }
 
             // 3. Tie-break 2: finalised_at ASC (lebih awal lebih baik)

@@ -145,8 +145,7 @@ export default function RecapIndex({ streams = [], selectedStream, rankings = []
                             )}
                         </div>
                         <p className="text-sm text-slate-600 mt-1">
-                            Perhitungan nilai akhir menggabungkan <strong className="text-slate-800">{vWeight}% Verifikasi Lapangan</strong> dan{' '}
-                            <strong className="text-slate-800">{jWeight}% Penjurian Convention Day</strong> dengan aturan Tie-Breaker resmi.
+                            Perhitungan nilai akhir dan penentuan peringkat murni berdasarkan <strong className="text-slate-800">Penjurian Convention Day</strong> dengan verifikasi lapangan sebagai seleksi kelayakan dan aturan Tie-Breaker resmi.
                         </p>
                     </div>
 
@@ -268,10 +267,10 @@ export default function RecapIndex({ streams = [], selectedStream, rankings = []
                 <div className="bg-slate-100 rounded-2xl p-4 border border-slate-200/80 flex items-start gap-3 text-xs text-slate-600">
                     <HelpCircle className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
                     <div>
-                        <span className="font-bold text-slate-800">Aturan Penentuan Peringkat & Tie-Breaker Resmi (REP-01):</span>
+                        <span className="font-bold text-slate-800">Aturan Penentuan Peringkat & Tie-Breaker Resmi:</span>
                         <span className="ml-1">
-                            Urutan peringkat dihitung berdasarkan Nilai Akhir Gabungan. Jika terdapat skor identik (seri), sistem secara otomatis menerapkan tie-breaker:
-                            (1) Nilai Juri lebih tinggi $\rightarrow$ (2) Waktu Finalisasi materi lebih awal $\rightarrow$ (3) Waktu submit registrasi lebih awal.
+                            Urutan peringkat dihitung berdasarkan Nilai Akhir (Penjurian Convention Day). Jika terdapat skor identik (seri), sistem secara otomatis menerapkan tie-breaker:
+                            (1) Nilai Verifikasi Lapangan lebih tinggi → (2) Waktu Finalisasi materi lebih awal → (3) Waktu submit registrasi lebih awal.
                         </span>
                     </div>
                 </div>
@@ -316,8 +315,8 @@ export default function RecapIndex({ streams = [], selectedStream, rankings = []
                                                     <th className="py-3.5 px-4">Gelar Pemenang</th>
                                                     <th className="py-3.5 px-4">Project & Tim</th>
                                                     <th className="py-3.5 px-4">Unit / Plant</th>
-                                                    <th className="py-3.5 px-4 text-center">Verifikasi ({vWeight}%)</th>
-                                                    <th className="py-3.5 px-4 text-center">Juri ({jWeight}%)</th>
+                                                    <th className="py-3.5 px-4 text-center">Verifikasi</th>
+                                                    <th className="py-3.5 px-4 text-center">Juri</th>
                                                     <th className="py-3.5 px-4 text-center">Nilai Akhir</th>
                                                     {isAdmin && (
                                                         <th className="py-3.5 px-4 text-center">Aksi Buka Kunci</th>
@@ -461,7 +460,7 @@ export default function RecapIndex({ streams = [], selectedStream, rankings = []
                                 </li>
                                 <li className="flex items-start gap-1.5">
                                     <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                                    <span>Broadcast notifikasi pemenang terkirim ke seluruh peserta via in-app & email (NOT-07).</span>
+                                    <span>Broadcast notifikasi pemenang terkirim ke seluruh peserta via in-app & email.</span>
                                 </li>
                             </ul>
                         </div>

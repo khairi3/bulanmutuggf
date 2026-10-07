@@ -13,7 +13,8 @@ import {
     SplitSquareVertical,
     BarChart3,
     ArrowUpRight,
-    Sparkles
+    Sparkles,
+    ShieldCheck
 } from 'lucide-react';
 
 export default function JudgeDashboard({ stats = { total: 0, evaluated: 0, draft: 0, unrated: 0 }, categories = [] }) {
@@ -24,117 +25,117 @@ export default function JudgeDashboard({ stats = { total: 0, evaluated: 0, draft
 
     const totalEvaluatedPercent = stats.total > 0 ? Math.round((stats.evaluated / stats.total) * 100) : 0;
 
+    const heroContent = (
+        <div className="space-y-6">
+            {/* Header Cockpit Banner */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 text-xs font-bold backdrop-blur-md mb-2">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
+                        <span>Dewan Juri Convention Day · Blind Scoring Protocol</span>
+                    </div>
+                    <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                        Halo, {employee?.full_name || 'Bapak/Ibu Juri'}! 👋
+                    </h1>
+                    <p className="text-sm text-slate-200 mt-1 max-w-xl leading-relaxed">
+                        Cockpit Penjurian Convention Day. Penilaian Anda sepenuhnya independen, transparan, dan langsung memengaruhi penganugerahan mutu GGF.
+                    </p>
+                </div>
+
+                {/* Progress Gauge */}
+                <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 sm:min-w-[240px]">
+                    <div className="flex items-center justify-between text-xs font-bold text-emerald-200 mb-1">
+                        <span>Progres Penjurian</span>
+                        <span className="text-white font-black text-sm">{totalEvaluatedPercent}%</span>
+                    </div>
+                    <div className="w-full h-2.5 bg-white/20 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-emerald-400 rounded-full transition-all duration-500"
+                            style={{ width: `${totalEvaluatedPercent}%` }}
+                        />
+                    </div>
+                    <div className="text-[11px] text-slate-300 mt-2 flex justify-between">
+                        <span>{stats.evaluated} selesai</span>
+                        <span>{stats.total} total finalis</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* 4 Frosted Summary Stats Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+                <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 text-white shadow-sm flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-semibold text-emerald-200 uppercase tracking-wider">Total Finalis</p>
+                        <p className="text-2xl font-black mt-1 text-white">{stats.total}</p>
+                        <p className="text-[11px] text-slate-300 mt-0.5">Penugasan juri</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-emerald-300">
+                        <Award className="w-5 h-5" />
+                    </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 text-white shadow-sm flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-semibold text-teal-200 uppercase tracking-wider">Selesai Dinilai</p>
+                        <p className="text-2xl font-black mt-1 text-teal-300">{stats.evaluated}</p>
+                        <p className="text-[11px] text-slate-300 mt-0.5">Terkunci & disubmit</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300">
+                        <CheckCircle2 className="w-5 h-5" />
+                    </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 text-white shadow-sm flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-semibold text-amber-200 uppercase tracking-wider">Draf Tersimpan</p>
+                        <p className="text-2xl font-black mt-1 text-amber-300">{stats.draft}</p>
+                        <p className="text-[11px] text-slate-300 mt-0.5">Belum difinalisasi</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-300">
+                        <Clock className="w-5 h-5" />
+                    </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 text-white shadow-sm flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-semibold text-rose-200 uppercase tracking-wider">Belum Dinilai</p>
+                        <p className="text-2xl font-black mt-1 text-rose-300">{stats.unrated}</p>
+                        <p className="text-[11px] text-slate-300 mt-0.5">Menunggu penilaian</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-400/30 flex items-center justify-center text-rose-300">
+                        <SplitSquareVertical className="w-5 h-5" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
     return (
-        <AppLayout>
+        <AppLayout hero={heroContent}>
             <Head title="Dashboard Juri - Convention Day" />
 
             <div className="space-y-6">
-                {/* Header Cockpit Banner */}
-                <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-                    <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
-
-                    <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-                        <div>
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-xs font-bold mb-3">
-                                <Sparkles className="w-3.5 h-3.5 text-purple-300" />
-                                Dewan Juri Convention Day
-                            </div>
-                            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-                                Halo, {employee?.full_name || 'Bapak/Ibu Juri'}
-                            </h1>
-                            <p className="text-sm text-purple-200 mt-1 max-w-xl">
-                                Selamat datang di Cockpit Penjurian Convention Day. Penilaian Anda sepenuhnya independen (Blind Scoring) dan langsung memengaruhi hasil akhir BMG.
-                            </p>
-                        </div>
-
-                        {/* Progress Gauge */}
-                        <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl p-4 sm:min-w-[220px]">
-                            <div className="flex items-center justify-between text-xs font-bold text-purple-200 mb-1">
-                                <span>Progres Penjurian</span>
-                                <span className="text-white font-black">{totalEvaluatedPercent}%</span>
-                            </div>
-                            <div className="w-full h-2.5 bg-white/20 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-emerald-400 rounded-full transition-all duration-500"
-                                    style={{ width: `${totalEvaluatedPercent}%` }}
-                                />
-                            </div>
-                            <div className="text-[11px] text-purple-300 mt-2 flex justify-between">
-                                <span>{stats.evaluated} selesai</span>
-                                <span>{stats.total} total finalis</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 4 Summary Stats Cards */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Finalis</span>
-                            <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
-                                <Award className="w-5 h-5" />
-                            </div>
-                        </div>
-                        <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-2">{stats.total}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">Project di-assign ke Anda</p>
-                    </div>
-
-                    <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Selesai Dinilai</span>
-                            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
-                                <CheckCircle2 className="w-5 h-5" />
-                            </div>
-                        </div>
-                        <p className="text-2xl sm:text-3xl font-black text-emerald-600 mt-2">{stats.evaluated}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">Terkunci & disubmit</p>
-                    </div>
-
-                    <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Draf Tersimpan</span>
-                            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
-                                <Clock className="w-5 h-5" />
-                            </div>
-                        </div>
-                        <p className="text-2xl sm:text-3xl font-black text-amber-600 mt-2">{stats.draft}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">Belum difinalisasi</p>
-                    </div>
-
-                    <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Belum Dinilai</span>
-                            <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-700 flex items-center justify-center">
-                                <SplitSquareVertical className="w-5 h-5" />
-                            </div>
-                        </div>
-                        <p className="text-2xl sm:text-3xl font-black text-rose-500 mt-2">{stats.unrated}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">Menunggu penilaian</p>
-                    </div>
-                </div>
-
                 {/* Filter and Search Bar */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="relative w-full sm:w-80">
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                         <input
                             type="text"
                             placeholder="Cari kode, judul, atau ketua tim..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white transition"
+                            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
                         />
                     </div>
 
-                    <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto">
+                    <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto p-1 bg-slate-100 rounded-2xl border border-slate-200/80">
                         <button
                             type="button"
                             onClick={() => setStatusFilter('all')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                                 statusFilter === 'all'
-                                    ? 'bg-purple-100 text-purple-900 border border-purple-300'
-                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                    ? 'bg-white text-slate-900 shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
                             }`}
                         >
                             Semua ({stats.total})
@@ -142,21 +143,21 @@ export default function JudgeDashboard({ stats = { total: 0, evaluated: 0, draft
                         <button
                             type="button"
                             onClick={() => setStatusFilter('unrated')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                                 statusFilter === 'unrated'
-                                    ? 'bg-rose-100 text-rose-900 border border-rose-300'
-                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                    ? 'bg-rose-50 text-rose-700 border border-rose-200 shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
                             }`}
                         >
-                            Belum Dinilai ({stats.unrated})
+                            Belum ({stats.unrated})
                         </button>
                         <button
                             type="button"
                             onClick={() => setStatusFilter('draft')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                                 statusFilter === 'draft'
-                                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                    ? 'bg-amber-50 text-amber-800 border border-amber-200 shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
                             }`}
                         >
                             Draf ({stats.draft})
@@ -164,10 +165,10 @@ export default function JudgeDashboard({ stats = { total: 0, evaluated: 0, draft
                         <button
                             type="button"
                             onClick={() => setStatusFilter('submitted')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                                 statusFilter === 'submitted'
-                                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
                             }`}
                         >
                             Selesai ({stats.evaluated})
@@ -177,8 +178,8 @@ export default function JudgeDashboard({ stats = { total: 0, evaluated: 0, draft
 
                 {/* Categories & Projects Accordion/List */}
                 {categories.length === 0 ? (
-                    <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center shadow-sm">
-                        <div className="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto mb-3">
+                    <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center shadow-xs">
+                        <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto mb-3">
                             <Award className="w-7 h-7" />
                         </div>
                         <h3 className="font-bold text-slate-800 text-base">Tidak Ada Project Finalis yang Ditugaskan</h3>
@@ -212,11 +213,11 @@ export default function JudgeDashboard({ stats = { total: 0, evaluated: 0, draft
                             const catPercent = cat.total > 0 ? Math.round((cat.evaluated / cat.total) * 100) : 0;
 
                             return (
-                                <div key={catIdx} className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                                <div key={catIdx} className="bg-white rounded-3xl border border-slate-200/90 shadow-xs overflow-hidden">
                                     {/* Category Card Header */}
                                     <div className="px-6 py-4 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-800 flex items-center justify-center font-black text-sm">
+                                            <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-sm">
                                                 {cat.category_name.slice(0, 3).toUpperCase()}
                                             </div>
                                             <div>
@@ -230,7 +231,7 @@ export default function JudgeDashboard({ stats = { total: 0, evaluated: 0, draft
                                         <div className="flex items-center gap-3">
                                             <div className="w-28 sm:w-36 h-2 bg-slate-200 rounded-full overflow-hidden">
                                                 <div
-                                                    className="h-full bg-purple-600 rounded-full"
+                                                    className="h-full bg-emerald-600 rounded-full"
                                                     style={{ width: `${catPercent}%` }}
                                                 />
                                             </div>
@@ -256,7 +257,7 @@ export default function JudgeDashboard({ stats = { total: 0, evaluated: 0, draft
                                                     >
                                                         <div className="space-y-1.5 max-w-2xl">
                                                             <div className="flex flex-wrap items-center gap-2">
-                                                                <span className="font-mono text-xs font-extrabold text-slate-800 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
+                                                                <span className="font-mono text-xs font-extrabold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
                                                                     {project.registration_code}
                                                                 </span>
 
@@ -279,12 +280,12 @@ export default function JudgeDashboard({ stats = { total: 0, evaluated: 0, draft
 
                                                                 {/* Materials Tags */}
                                                                 {project.has_presentation && (
-                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700">
+                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700">
                                                                         <FileText className="w-3 h-3 text-blue-500" /> PPT/PDF Ada
                                                                     </span>
                                                                 )}
                                                                 {project.has_video && (
-                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-50 text-purple-700">
+                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-50 text-purple-700">
                                                                         <Video className="w-3 h-3 text-purple-500" /> Video Ada
                                                                     </span>
                                                                 )}
@@ -310,12 +311,12 @@ export default function JudgeDashboard({ stats = { total: 0, evaluated: 0, draft
                                                         <div className="flex items-center gap-3 flex-shrink-0">
                                                             <Link
                                                                 href={`/judge/projects/${project.id}`}
-                                                                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${
+                                                                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-xs transition ${
                                                                     isSubmitted
                                                                         ? 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
                                                                         : isDraft
                                                                         ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20'
-                                                                        : 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20'
+                                                                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
                                                                 }`}
                                                             >
                                                                 <SplitSquareVertical className="w-4 h-4" />

@@ -29,6 +29,11 @@ class Employee extends Model
         ];
     }
 
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
     public function user(): HasOne
     {
         return $this->hasOne(User::class);

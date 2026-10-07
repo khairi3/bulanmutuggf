@@ -41,7 +41,7 @@ export default function ForgotPassword({ flash }) {
                                 label="Index Karyawan (NIK / ID)"
                                 type="text"
                                 icon={User}
-                                placeholder="Contoh: EMP1001 atau EMP1015"
+                                placeholder="Contoh: 10026802"
                                 value={data.employee_index}
                                 error={errors.employee_index}
                                 onChange={(e) => setData('employee_index', e.target.value)}
@@ -67,10 +67,10 @@ export default function ForgotPassword({ flash }) {
                         <div className="rounded-lg bg-blue-50 border border-blue-200/60 p-3.5 text-xs text-blue-900 space-y-1.5">
                             <div className="flex items-center gap-1.5 font-bold text-blue-800">
                                 <HelpCircle className="w-4 h-4 shrink-0" />
-                                <span>Bagi Karyawan Tanpa Email (AUTH-03)</span>
+                                <span>Bagi Karyawan Tanpa Email</span>
                             </div>
                             <p className="text-blue-800/90 leading-relaxed">
-                                Karyawan di perkebunan/pabrik tanpa email resmi dapat meminta reset password langsung ke Panitia/Admin L&D via PIC Unit masing-masing.
+                                Karyawan tanpa email resmi dapat meminta reset password langsung ke Panitia/Admin via PIC Unit masing-masing.
                             </p>
                         </div>
                     </div>

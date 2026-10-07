@@ -5,6 +5,7 @@ use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\EventController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\PhaseController;
 use App\Http\Controllers\RecapController;
 use App\Http\Controllers\ScoringParameterController;
 use App\Http\Controllers\SelectionController;
+use App\Http\Controllers\SettingController;
 use App\Http\Controllers\VerifierController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -42,6 +44,9 @@ Route::middleware('guest')->group(function () {
     Route::post('/forgot-password', [AuthController::class, 'sendResetInstructions'])->name('password.email');
 });
 
+// Public Certificate Verification (REP-04)
+Route::get('/verify-certificate/{verify_code}', [CertificateController::class, 'verify'])->name('certificates.verify');
+
 // Public Autocomplete API (EMP-03, EMP-04)
 Route::get('/api/employees/search', [EmployeeController::class, 'search'])->name('api.employees.search');
 
@@ -67,11 +72,13 @@ Route::middleware('auth')->group(function () {
         Route::post('/employees/preview-import', [EmployeeController::class, 'previewImport'])->name('employees.preview-import');
         Route::post('/employees/commit-import', [EmployeeController::class, 'commitImport'])->name('employees.commit-import');
         Route::post('/employees/{employee}/toggle-active', [EmployeeController::class, 'toggleActive'])->name('employees.toggle-active');
+        Route::post('/employees/{employee}/reset-password', [EmployeeController::class, 'resetPassword'])->name('employees.reset-password');
 
         // Event & Stream Configurations (Task 2.4, 2.5, 2.6, 2.7, 2.8)
         Route::get('/events', [EventController::class, 'index'])->name('events.index');
         Route::post('/events', [EventController::class, 'store'])->name('events.store');
         Route::put('/events/{event}', [EventController::class, 'update'])->name('events.update');
+        Route::post('/events/{event}/streams', [EventController::class, 'storeStream'])->name('events.streams.store');
         Route::post('/streams/{stream}/toggle', [EventController::class, 'toggleStream'])->name('streams.toggle');
         Route::post('/streams/{stream}/rules', [EventController::class, 'updateStreamRules'])->name('streams.rules');
 
@@ -90,6 +97,7 @@ Route::middleware('auth')->group(function () {
         // User Management & Assignments Matrix (Task 2.9)
         Route::get('/assignments', [AssignmentController::class, 'index'])->name('assignments.index');
         Route::post('/assignments', [AssignmentController::class, 'store'])->name('assignments.store');
+        Route::post('/assignments/evaluators', [AssignmentController::class, 'storeEvaluator'])->name('assignments.evaluators.store');
         Route::delete('/assignments/{assignment}', [AssignmentController::class, 'destroy'])->name('assignments.destroy');
         Route::post('/users/{user}/toggle-role', [AssignmentController::class, 'toggleUserRole'])->name('users.toggle-role');
 
@@ -109,11 +117,19 @@ Route::middleware('auth')->group(function () {
         Route::post('/projects/{project}/unlock', [AdminUnlockController::class, 'unlockProject'])->name('projects.unlock');
         Route::post('/score-sheets/{scoreSheet}/unlock', [AdminUnlockController::class, 'unlockScoreSheet'])->name('score-sheets.unlock');
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
+        Route::post('/settings/login-background', [SettingController::class, 'updateLoginBackground'])->name('settings.login-background');
+        Route::post('/certificates/toggle-publish', [CertificateController::class, 'togglePublish'])->name('certificates.toggle-publish');
+        Route::post('/certificates/signatory', [CertificateController::class, 'updateSignatory'])->name('certificates.signatory');
+        Route::post('/certificates/template', [CertificateController::class, 'uploadTemplate'])->name('certificates.template.upload');
+        Route::post('/certificates/template/reset', [CertificateController::class, 'resetTemplate'])->name('certificates.template.reset');
+        Route::post('/certificates/template/settings', [CertificateController::class, 'updateTemplateSettings'])->name('certificates.template.settings');
+        Route::get('/certificates/preview/{project?}', [CertificateController::class, 'previewSample'])->name('certificates.preview');
     });
 
     // Participant Area (Phase 3, 5 & 6)
     Route::middleware(['must.change.password', 'role:participant'])->prefix('participant')->name('participant.')->group(function () {
         Route::get('/dashboard', [ParticipantProjectController::class, 'index'])->name('dashboard');
+        Route::get('/projects/{project}/certificate', [CertificateController::class, 'download'])->name('projects.certificate.download');
         Route::get('/projects/create', [ParticipantProjectController::class, 'create'])->name('projects.create');
         Route::post('/projects/draft', [ParticipantProjectController::class, 'storeDraft'])->name('projects.draft');
         Route::post('/projects/submit', [ParticipantProjectController::class, 'submit'])->name('projects.submit');

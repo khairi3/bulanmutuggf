@@ -17,6 +17,8 @@ class Stream extends Model
 
     public const CODE_ENERGY = 'ENERGY';
 
+    public const CODE_TPM = 'TPM';
+
     protected $fillable = [
         'event_id',
         'code',

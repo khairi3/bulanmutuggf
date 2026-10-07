@@ -15,18 +15,21 @@ import {
     EyeOff,
     Building2,
     Briefcase,
+    Sparkles,
 } from 'lucide-react';
 import Input from '@/Components/Input';
 import Button from '@/Components/Button';
 import Modal from '@/Components/Modal';
 import EmployeeAutocomplete from '@/Components/EmployeeAutocomplete';
 
-export default function Login({ status }) {
+export default function Login({ status, backgroundImage }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         employee_index: '',
         password: '',
         remember: false,
     });
+
+    const [showLoginPassword, setShowLoginPassword] = useState(false);
 
     // Check if ?register=1 is in URL
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -118,100 +121,164 @@ export default function Login({ status }) {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 px-4 relative overflow-hidden select-none">
-            <Head title="Masuk Portal Bulan Mutu GGF" />
+        <div
+            className="min-h-screen relative flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-cover bg-center bg-no-repeat overflow-hidden select-none transition-all duration-700"
+            style={{
+                backgroundImage: `url(${backgroundImage || '/images/login-bg-default.jpg'})`,
+            }}
+        >
+            <Head title="Masuk Portal Bulan Mutu GGF 2027" />
 
-            {/* Ambient Background Glows */}
-            <div className="absolute top-0 -left-4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute bottom-0 -right-4 w-96 h-96 bg-green-500/10 rounded-full blur-3xl pointer-events-none" />
+            {/* Dark & Cinematic Vignette Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/40 via-slate-900/30 to-slate-950/70 backdrop-blur-[1px] pointer-events-none" />
 
-            <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-                <div className="flex justify-center mb-4">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-green-400 flex items-center justify-center text-white font-extrabold text-2xl shadow-xl shadow-emerald-500/30 ring-4 ring-emerald-500/20">
-                        B
+            {/* Subtle Ambient Radial Glow */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[540px] h-[540px] bg-emerald-500/15 rounded-full blur-[140px] pointer-events-none" />
+
+            {/* Main Glassmorphism Card */}
+            <div className="w-full max-w-[430px] relative z-10">
+                <div className="relative rounded-[28px] bg-slate-900/40 backdrop-blur-2xl border border-white/20 shadow-[0_25px_60px_rgba(0,0,0,0.6)] p-7 sm:p-9 text-white overflow-hidden">
+                    {/* Top Specular Gradient Highlight Rim */}
+                    <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-white/50 to-transparent pointer-events-none" />
+
+                    {/* Logo & Brand Header */}
+                    <div className="text-center mb-6">
+                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 via-teal-500 to-cyan-500 p-0.5 shadow-lg shadow-emerald-500/30 mb-3.5 ring-2 ring-white/30">
+                            <div className="w-full h-full bg-slate-950/60 rounded-[14px] backdrop-blur-sm flex items-center justify-center text-emerald-300 font-black text-2xl tracking-wider">
+                                B
+                            </div>
+                        </div>
+                        <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white drop-shadow-sm">
+                            Bulan Mutu GGF 2027
+                        </h1>
+                        <p className="mt-1.5 text-xs text-emerald-200/80 font-medium tracking-wide">
+                            Driving Excellence Through Innovation, Improvement & Automation
+                        </p>
                     </div>
-                </div>
-                <h2 className="text-center text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-                    Bulan Mutu GGF 2026
-                </h2>
-                <p className="mt-2 text-center text-xs sm:text-sm text-emerald-300/80 font-medium">
-                    Portal Inovasi, Continuous Improvement & Bulan K3
-                </p>
-            </div>
 
-            <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-                <div className="bg-white/95 backdrop-blur-xl py-8 px-6 sm:px-10 shadow-2xl rounded-2xl border border-white/20">
-                    <form className="space-y-5" onSubmit={submit}>
+                    <form className="space-y-4" onSubmit={submit}>
+                        {/* Status Flash Alert */}
+                        {status && (
+                            <div className="p-3 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs font-semibold backdrop-blur-md">
+                                {status}
+                            </div>
+                        )}
+
+                        {/* Input NIK / Index */}
                         <div>
-                            <Input
-                                id="employee_index"
-                                label="Index Karyawan (NIK / ID)"
-                                type="text"
-                                icon={User}
-                                placeholder="Contoh: ADMIN001 atau EMP1001"
-                                value={data.employee_index}
-                                error={errors.employee_index}
-                                onChange={(e) => setData('employee_index', e.target.value)}
-                                autoFocus
-                                required
-                            />
+                            <label htmlFor="employee_index" className="block text-xs font-semibold text-slate-200 mb-1.5">
+                                Index Karyawan
+                            </label>
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-300 group-focus-within:text-emerald-400 transition-colors">
+                                    <User className="w-4 h-4" />
+                                </div>
+                                <input
+                                    id="employee_index"
+                                    type="text"
+                                    placeholder="Contoh: 10026802"
+                                    value={data.employee_index}
+                                    onChange={(e) => setData('employee_index', e.target.value)}
+                                    autoFocus
+                                    required
+                                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 focus:bg-white/20 border border-white/20 focus:border-emerald-400/80 text-white placeholder-white/40 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/30 backdrop-blur-md transition-all font-mono"
+                                />
+                            </div>
+                            {errors.employee_index && (
+                                <p className="mt-1 text-xs text-rose-300 font-medium flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                    <span>{errors.employee_index}</span>
+                                </p>
+                            )}
                         </div>
 
+                        {/* Input Password */}
                         <div>
-                            <div className="flex items-center justify-between mb-1">
-                                <label htmlFor="password" className="block text-sm font-semibold text-slate-700">
-                                    Password <span className="text-rose-500">*</span>
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label htmlFor="password" className="block text-xs font-semibold text-slate-200">
+                                    Password
                                 </label>
                                 <Link
                                     href="/forgot-password"
-                                    className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:underline"
+                                    className="text-xs font-medium text-emerald-300 hover:text-emerald-200 hover:underline transition-colors"
                                 >
                                     Lupa password?
                                 </Link>
                             </div>
-                            <Input
-                                id="password"
-                                type="password"
-                                icon={Lock}
-                                placeholder="Masukkan password Anda"
-                                value={data.password}
-                                error={errors.password}
-                                onChange={(e) => setData('password', e.target.value)}
-                                required
-                            />
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-300 group-focus-within:text-emerald-400 transition-colors">
+                                    <Lock className="w-4 h-4" />
+                                </div>
+                                <input
+                                    id="password"
+                                    type={showLoginPassword ? 'text' : 'password'}
+                                    placeholder="Masukkan password Anda"
+                                    value={data.password}
+                                    onChange={(e) => setData('password', e.target.value)}
+                                    required
+                                    className="w-full pl-10 pr-10 py-3 rounded-xl bg-white/10 hover:bg-white/15 focus:bg-white/20 border border-white/20 focus:border-emerald-400/80 text-white placeholder-white/40 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/30 backdrop-blur-md transition-all"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-white/50 hover:text-white transition-colors cursor-pointer"
+                                    tabIndex={-1}
+                                    title={showLoginPassword ? 'Sembunyikan password' : 'Lihat password'}
+                                >
+                                    {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                            {errors.password && (
+                                <p className="mt-1 text-xs text-rose-300 font-medium flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                    <span>{errors.password}</span>
+                                </p>
+                            )}
                         </div>
 
-                        <div className="flex items-center justify-between">
-                            <label className="flex items-center gap-2 cursor-pointer">
+                        {/* Ingat Saya */}
+                        <div className="flex items-center justify-between pt-0.5">
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
                                 <input
                                     type="checkbox"
                                     checked={data.remember}
                                     onChange={(e) => setData('remember', e.target.checked)}
-                                    className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                                    className="rounded border-white/30 bg-white/10 text-emerald-500 focus:ring-emerald-400 w-4 h-4 cursor-pointer"
                                 />
-                                <span className="text-xs font-medium text-slate-600">Ingat saya di perangkat ini</span>
+                                <span className="text-xs text-slate-300">Ingat saya di perangkat ini</span>
                             </label>
                         </div>
 
-                        <div>
-                            <Button
+                        {/* Submit Button Glowing Gradient */}
+                        <div className="pt-2">
+                            <button
                                 type="submit"
-                                variant="primary"
-                                loading={processing}
-                                className="w-full text-base font-semibold py-3"
+                                disabled={processing}
+                                className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white text-sm font-bold shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
                             >
-                                <span>Masuk ke Portal</span>
-                                <ArrowRight className="w-4 h-4 ml-2" />
-                            </Button>
+                                {processing ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                                        <span>Memproses...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span>Masuk ke Portal</span>
+                                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                    </>
+                                )}
+                            </button>
                         </div>
 
-                        {/* Separator */}
+                        {/* Divider */}
                         <div className="relative my-4">
                             <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-slate-200" />
+                                <div className="w-full border-t border-white/15" />
                             </div>
-                            <div className="relative flex justify-center text-xs uppercase">
-                                <span className="bg-white px-3 text-slate-400 font-semibold">atau</span>
+                            <div className="relative flex justify-center text-[11px] uppercase tracking-wider">
+                                <span className="px-3 bg-transparent text-slate-300/80 font-bold backdrop-blur-xs">
+                                    atau
+                                </span>
                             </div>
                         </div>
 
@@ -220,18 +287,21 @@ export default function Login({ status }) {
                             <button
                                 type="button"
                                 onClick={() => setIsRegisterModalOpen(true)}
-                                className="w-full py-2.5 px-4 rounded-xl border-2 border-emerald-600/30 hover:border-emerald-600 bg-emerald-50/50 hover:bg-emerald-50 text-emerald-800 text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 group"
+                                className="w-full py-3 px-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 group hover:scale-[1.01] active:scale-[0.99] backdrop-blur-md cursor-pointer"
                             >
-                                <UserPlus className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
-                                <span>Karyawan Baru? Buat / Aktivasi Akun</span>
+                                <UserPlus className="w-4 h-4 text-emerald-300 group-hover:scale-110 transition-transform" />
+                                <span>Belum Punya Akun? Buat / Aktivasi Akun</span>
                             </button>
                         </div>
                     </form>
-                </div>
 
-                <p className="mt-6 text-center text-xs text-slate-400">
-                    &copy; 2026 Great Giant Foods Learning Center. Seluruh hak cipta dilindungi.
-                </p>
+                    {/* Footer text inside card */}
+                    <div className="mt-6 pt-4 border-t border-white/10 text-center space-y-1">
+                        <p className="text-[11px] text-slate-300/70">
+                            &copy; 2027 Great Giant Foods Learning Center.
+                        </p>
+                    </div>
+                </div>
             </div>
 
             {/* MODAL BUAT / AKTIVASI AKUN KARYAWAN */}
@@ -242,7 +312,7 @@ export default function Login({ status }) {
                     handleClearSelected();
                 }}
                 title="Buat & Aktivasi Akun Karyawan"
-                description="Khusus karyawan terdaftar di Master Data GGF yang baru pertama kali membuat password akun."
+                description="Khusus karyawan aktif GGF yang baru pertama kali membuat password akun."
                 maxWidth="lg"
             >
                 <div className="space-y-4 pt-1">
@@ -255,8 +325,9 @@ export default function Login({ status }) {
                             <EmployeeAutocomplete
                                 selectedEmployee={null}
                                 onSelect={handleSelectEmployee}
-                                placeholder="Ketik NIK (misal: EMP1018) atau nama Anda..."
+                                placeholder="Ketik NIK (misal: 10026802) atau nama Anda..."
                                 label=""
+                                showLevel={false}
                             />
                         ) : (
                             <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-start justify-between gap-3">
@@ -272,7 +343,7 @@ export default function Login({ status }) {
                                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
                                         <span className="flex items-center gap-1">
                                             <Briefcase className="w-3.5 h-3.5 text-slate-400" />
-                                            {selectedEmployee.position || '-'} ({selectedEmployee.employee_level || 'Staff'})
+                                            {selectedEmployee.position || '-'}
                                         </span>
                                         <span className="flex items-center gap-1">
                                             <Building2 className="w-3.5 h-3.5 text-slate-400" />
@@ -432,11 +503,10 @@ export default function Login({ status }) {
 
                             {/* Password match indicator */}
                             {registerForm.data.password && registerForm.data.password_confirmation && (
-                                <p className={`text-[11px] font-medium ${
-                                    registerForm.data.password === registerForm.data.password_confirmation
-                                        ? 'text-emerald-600'
-                                        : 'text-rose-600'
-                                }`}>
+                                <p className={`text-[11px] font-medium ${registerForm.data.password === registerForm.data.password_confirmation
+                                    ? 'text-emerald-600'
+                                    : 'text-rose-600'
+                                    }`}>
                                     {registerForm.data.password === registerForm.data.password_confirmation
                                         ? '✓ Password dan konfirmasi cocok.'
                                         : '✕ Konfirmasi password belum cocok.'}

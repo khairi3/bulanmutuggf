@@ -80,6 +80,10 @@ class RegistrationCodeService
             return 'ENRG';
         }
 
+        if ($stream->code === Stream::CODE_TPM) {
+            return 'TPM';
+        }
+
         // For CIC and generic streams, order options by dimension code_order
         if (! empty($categoryOptionIds)) {
             $options = CategoryOption::with('dimension')

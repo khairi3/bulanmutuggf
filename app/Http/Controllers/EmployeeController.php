@@ -4,10 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\Employee;
+use App\Models\Role;
+use App\Models\User;
 use App\Services\EmployeeImportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -111,7 +114,7 @@ class EmployeeController extends Controller
 
         $employees = Employee::where('is_active', true) // EMP-04: only active
             ->where(function ($q) use ($query) {
-                $q->where('employee_index', 'like', "{$query}%")
+                $q->where('employee_index', 'like', "%{$query}%")
                     ->orWhere('full_name', 'like', "%{$query}%");
             })
             ->select(['id', 'employee_index', 'full_name', 'employee_level', 'position', 'unit', 'division', 'email', 'phone'])
@@ -138,5 +141,69 @@ class EmployeeController extends Controller
         );
 
         return back()->with('success', "Status karyawan {$employee->full_name} berhasil diubah.");
+    }
+
+    /**
+     * Admin reset or initialize participant/employee password.
+     */
+    public function resetPassword(Request $request, Employee $employee): RedirectResponse
+    {
+        $currentUser = $request->user();
+        if (! $currentUser || ! $currentUser->hasRole('admin')) {
+            abort(403, 'Hanya Admin yang dapat mereset password.');
+        }
+
+        $request->validate([
+            'password' => ['nullable', 'string', 'min:6'],
+            'reason' => ['nullable', 'string', 'max:255'],
+            'must_change_password' => ['nullable', 'boolean'],
+        ], [
+            'password.min' => 'Password minimal harus 6 karakter.',
+        ]);
+
+        $newPassword = $request->filled('password') ? $request->input('password') : 'password123';
+        $mustChange = $request->has('must_change_password') ? $request->boolean('must_change_password') : true;
+        $reason = $request->filled('reason')
+            ? $request->input('reason')
+            : "Reset password oleh Admin ({$currentUser->employee?->full_name})";
+
+        $user = $employee->user;
+        $isNewAccount = false;
+
+        if (! $user) {
+            $user = User::create([
+                'employee_id' => $employee->id,
+                'password' => Hash::make($newPassword),
+                'must_change_password' => $mustChange,
+            ]);
+
+            $participantRole = Role::where('code', Role::PARTICIPANT)->first();
+            if ($participantRole) {
+                $user->roles()->syncWithoutDetaching([$participantRole->id]);
+            }
+            $isNewAccount = true;
+        } else {
+            $user->update([
+                'password' => Hash::make($newPassword),
+                'must_change_password' => $mustChange,
+            ]);
+        }
+
+        AuditLog::log(
+            action: $isNewAccount ? 'ADMIN_CREATE_USER' : 'ADMIN_RESET_PASSWORD',
+            entityType: 'User',
+            entityId: $user->id,
+            after: [
+                'employee_index' => $employee->employee_index,
+                'must_change_password' => $mustChange,
+            ],
+            reason: $reason
+        );
+
+        $msg = $isNewAccount
+            ? "Akun untuk {$employee->full_name} ({$employee->employee_index}) berhasil dibuat dengan password: {$newPassword}"
+            : "Password untuk {$employee->full_name} ({$employee->employee_index}) berhasil direset.";
+
+        return back()->with('success', $msg);
     }
 }

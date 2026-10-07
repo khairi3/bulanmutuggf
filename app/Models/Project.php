@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Project extends Model
@@ -96,6 +97,11 @@ class Project extends Model
     public function stream(): BelongsTo
     {
         return $this->belongsTo(Stream::class);
+    }
+
+    public function event(): HasOneThrough
+    {
+        return $this->hasOneThrough(Event::class, Stream::class, 'id', 'id', 'stream_id', 'event_id');
     }
 
     public function leader(): BelongsTo

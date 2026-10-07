@@ -17,6 +17,7 @@ Saat ini pendaftaran, pengumpulan project charter, feedback verifikator, dan rek
 | Continuous Improvement Convention (CIC) | Level x Improvement x Group Area | BMECHPG1-001 | Lengkap |
 | Bulan K3 | SIGAP (Safety Improvement) | SIGAP-001 | Lengkap |
 | Energy Management Implementation | Belum didefinisikan | Belum didefinisikan | Diasumsikan mengikuti pola K3 (lihat Bagian 8) |
+| Total Productive Maintenance (TPM) | Pilar TPM (Autonomous, Planned, Quality, Kaizen) | TPM-001 | Lengkap |
 
 ### 1.3 Tujuan produk
 1. **Satu sumber kebenaran**: semua project charter, lampiran, feedback, dan nilai tersimpan di satu tempat dengan riwayat versi.
@@ -113,6 +114,7 @@ Kode terbit saat Submit, unik per event, dan tidak pernah berubah. Nomor urut di
 | CIC | {Level}{Improvement}{Area}-{NNN} | Beginner + Mechanization + Estate PG1 = BMECHPG1-001 |
 | Bulan K3 | SIGAP-{NNN} | SIGAP-001 |
 | Energy Management | {prefix}-{NNN} (asumsi) | ENRG-001 |
+| Total Productive Maintenance (TPM) | TPM-{NNN} | TPM-001 |
 
 ---
 
@@ -164,7 +166,7 @@ Kode terbit saat Submit, unik per event, dan tidak pernah berubah. Nomor urut di
 - **VER-03** (P0): Klik kode atau judul membuka halaman detail: tim, kategori, charter versi terbaru, lampiran dengan preview, riwayat versi.
 - **VER-04** (P1): Log visit lapangan: tanggal visit, lokasi, foto bukti (upload dari HP), catatan.
 - **VER-05** (P0): Tulis feedback per project, opsional ditautkan ke bagian charter tertentu; simpan sebagai draft atau kirim ke peserta.
-- **VER-06** (P0): Form penilaian: setiap parameter tampil dengan deskripsi rubrik, input 0-100 (slider + angka), bobot, total tertimbang otomatis.
+- **VER-06** (P0): Form penilaian verifikator berbasis 6 Kriteria Standar BMG 2027 (Keberadaan Lokasi, Bukti Perubahan, Implementasi Solusi, Validitas Data, Standarisasi & Control, Sustainability) dengan 3 pilihan status dan kuantifikasi skor (Pass = 5, Need Follow Up = 3, Not Pass = 1), dilengkapi panduan bukti yang harus dilihat di lapangan, catatan observasi, dan rekap distribusi status serta total skor kuantifikasi.
 - **VER-07** (P0): Simpan draft nilai; Submit Final mengunci nilai dan mengubah status project menjadi Terverifikasi.
 - **VER-08** (P0): Jika satu project dinilai lebih dari satu verifikator, nilai verifikasi = rata-rata.
 - **VER-09** (P0): Halaman Seleksi: ranking per kategori berdasarkan nilai verifikasi, checkbox "Lolos", indikator kuota, lalu Submit Seleksi.
@@ -279,7 +281,7 @@ Pengerjaan dibagi 9 phase berurutan; Phase 0 sampai 4 membentuk MVP yang harus l
 - [x] 4.3 Halaman detail project: charter terbaru, riwayat versi, preview lampiran (VER-03).
 - [x] 4.4 Feedback: tulis, simpan draft, kirim ke peserta; tab Feedback + badge belum dibaca di sisi peserta (VER-05, PAR-08, NOT-02).
 - [x] 4.5 Log visit + upload foto dari HP (VER-04).
-- [x] 4.6 Form penilaian dinamis dari `scoring_parameters`, slider + input angka, total tertimbang live (VER-06).
+- [x] 4.6 Form verifikasi: 6 Kriteria Standar BMG 2027, status & kuantifikasi skor (Pass = 5, Need Follow Up = 3, Not Pass = 1), panduan bukti lapangan, rekap distribusi & kuantifikasi total (VER-06).
 - [x] 4.7 Draft vs Submit Final, kunci nilai, ubah status ke Terverifikasi (VER-07).
 - [x] 4.8 Service perhitungan skor (rata-rata multi verifikator) + unit test (VER-08).
 - [x] 4.9 Transisi status otomatis Submitted ke Dalam Verifikasi.
@@ -320,7 +322,7 @@ Pengerjaan dibagi 9 phase berurutan; Phase 0 sampai 4 membentuk MVP yang harus l
 #### Phase 8 — Backlog Pasca-Launch (P2)
 - [ ] 8.1 Stream Energy Management dikonfigurasi penuh setelah spesifikasinya final.
 - [ ] 8.2 Diff antar versi charter (PAR-12).
-- [ ] 8.3 Leaderboard publik dan e-sertifikat PDF (REP-03, REP-04).
+- [x] 8.3 Leaderboard publik dan e-sertifikat PDF (REP-03, REP-04). *E-Sertifikat PDF personal per individu anggota tim dengan QR Code verifikasi publik, admin publication toggle, 2 pejabat penandatangan berdampingan, dan upload template background kustom A4 landscape (Cara 1) selesai.*
 - [ ] 8.4 Broadcast pengumuman (ADM-08).
 - [ ] 8.5 Duplikasi konfigurasi event tahun lalu (CFG-09).
 - [ ] 8.6 Integrasi SSO dan sinkron HRIS (AUTH-06, EMP-05).

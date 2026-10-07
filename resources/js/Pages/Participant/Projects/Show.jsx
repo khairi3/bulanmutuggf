@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, Link, useForm, router } from '@inertiajs/react';
+import { Head, Link, useForm, router, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import Card from '@/Components/Card';
 import Button from '@/Components/Button';
@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 
 export default function ProjectShow({ project }) {
+    const { auth, certificates } = usePage().props;
     const [activeTab, setActiveTab] = useState('charter'); // 'charter', 'team', 'files', 'versions', 'feedback', 'convention'
     const [isEditCharterModalOpen, setIsEditCharterModalOpen] = useState(false);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -219,6 +220,24 @@ export default function ProjectShow({ project }) {
                                         </Button>
                                     </>
                                 )}
+
+                                {certificates?.isPublished && project.status !== 'draft' && (
+                                    <a
+                                        href={`/participant/projects/${project.id}/certificate`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs shadow-2xs transition"
+                                    >
+                                        <Award className="w-3.5 h-3.5 text-amber-600" />
+                                        <span>
+                                            {project.final_result?.award_title
+                                                ? `Unduh Sertifikat Juara`
+                                                : ['qualified', 'judging', 'finalised', 'announced'].includes(project.status)
+                                                ? 'Unduh Sertifikat Finalis'
+                                                : 'Unduh Sertifikat Peserta'}
+                                        </span>
+                                    </a>
+                                )}
                             </div>
                         )}
                     </div>
@@ -228,6 +247,52 @@ export default function ProjectShow({ project }) {
             <Head title={`${project.registration_code || 'Project'} - ${project.title}`} />
 
             <div className="space-y-6">
+                {/* E-CERTIFICATE PUBLISHED BANNER */}
+                {certificates?.isPublished && project.status !== 'draft' && (
+                    <div className="bg-gradient-to-r from-amber-500/15 via-emerald-500/10 to-teal-500/15 border border-amber-300 rounded-3xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex items-center gap-3.5">
+                            <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/30">
+                                <Award className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <div className="flex flex-wrap items-center gap-2 mb-1">
+                                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
+                                        E-Sertifikat Resmi Terbit
+                                    </div>
+                                    <div className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider border ${
+                                        project.final_result?.award_title
+                                            ? 'bg-amber-200/80 text-amber-950 border-amber-400'
+                                            : ['qualified', 'judging', 'finalised', 'announced'].includes(project.status)
+                                            ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                                            : 'bg-slate-100 text-slate-800 border-slate-300'
+                                    }`}>
+                                        {project.final_result?.award_title
+                                            ? `🏆 Kategori: Juara (${project.final_result.award_title})`
+                                            : ['qualified', 'judging', 'finalised', 'announced'].includes(project.status)
+                                            ? '⭐ Kategori: Finalis Convention Day'
+                                            : '🎖️ Kategori: Participant (Peserta)'}
+                                    </div>
+                                </div>
+                                <h3 className="font-black text-slate-900 text-sm sm:text-base">
+                                    E-Sertifikat Penghargaan Tersedia untuk Anda
+                                </h3>
+                                <p className="text-xs text-slate-600 mt-0.5">
+                                    Sertifikat personal atas nama <strong>{auth?.user?.employee?.full_name}</strong> berformat PDF A4 siap cetak dengan nomor seri dan QR Code verifikasi resmi.
+                                </p>
+                            </div>
+                        </div>
+                        <a
+                            href={`/participant/projects/${project.id}/certificate`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md shadow-amber-600/20 hover:scale-[1.02] active:scale-[0.98] transition shrink-0"
+                        >
+                            <Download className="w-4 h-4" />
+                            <span>Download E-Sertifikat Saya</span>
+                        </a>
+                    </div>
+                )}
+
                 {/* DRAFT NOTIFICATION BANNER */}
                 {project.status === 'draft' && (
                     <div className="bg-amber-50 border border-amber-300 rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -593,7 +658,7 @@ export default function ProjectShow({ project }) {
                 {/* TAB 5: CATATAN VERIFIKATOR (PAR-08 & PAR-09) */}
                 {activeTab === 'feedback' && (
                     <Card
-                        title="Catatan & Diskusi Verifikator Lapangan (PAR-09)"
+                        title="Catatan & Diskusi Verifikator Lapangan"
                         subtitle="Tinjau catatan perbaikan, balas diskusi klarifikasi, dan tandai catatan yang sudah ditindaklanjuti."
                     >
                         <FeedbackThread
@@ -1020,7 +1085,7 @@ export default function ProjectShow({ project }) {
             <Modal
                 isOpen={isFinaliseModalOpen}
                 onClose={() => setIsFinaliseModalOpen(false)}
-                title="Konfirmasi Finalise Project (PAR-11)"
+                title="Konfirmasi Finalise Project"
                 description="Tindakan ini akan mengunci seluruh data dan berkas project secara permanen untuk penilaian Convention Day."
                 footer={
                     <>

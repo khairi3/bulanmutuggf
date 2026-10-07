@@ -243,6 +243,44 @@ class VerifierEvaluationTest extends TestCase
         $this->assertEquals(Project::STATUS_VERIFIED, $this->cicProject->status);
     }
 
+    public function test_verifier_can_save_and_submit_quantified_scores_pass_5_followup_3_notpass_1(): void
+    {
+        $params = $this->cicStream->scoringParameters()
+            ->where('stage', ScoringParameter::STAGE_VERIFICATION)
+            ->orderBy('sort_order')
+            ->get();
+
+        $this->assertNotEmpty($params);
+
+        // Assign quantified scores: Pass = 5, Need Follow Up = 3, Not Pass = 1
+        $scores = [];
+        $values = [5.0, 3.0, 1.0, 5.0, 3.0, 5.0];
+        foreach ($params as $idx => $p) {
+            $scoreVal = $values[$idx % count($values)];
+            $scores[$p->id] = ['score' => $scoreVal, 'note' => "Observasi skor {$scoreVal}"];
+        }
+
+        $response = $this->actingAs($this->verifierUser)->post("/verifier/projects/{$this->cicProject->id}/score", [
+            'scores' => $scores,
+            'submit' => true,
+        ]);
+
+        $response->assertSessionHas('success');
+
+        $sheet = ScoreSheet::where('project_id', $this->cicProject->id)
+            ->where('scorer_user_id', $this->verifierUser->id)
+            ->first();
+
+        $this->assertEquals(ScoreSheet::STATUS_SUBMITTED, $sheet->status);
+        $this->assertGreaterThan(0, $sheet->total_weighted);
+        $this->assertLessThanOrEqual(5.0, $sheet->total_weighted);
+
+        // Verify each item score in DB
+        foreach ($sheet->items as $item) {
+            $this->assertContains((float) $item->score, [1.0, 3.0, 5.0]);
+        }
+    }
+
     public function test_unauthorized_user_cannot_access_verifier_project(): void
     {
         // Participant trying to access verifier show page should get 403

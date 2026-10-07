@@ -176,4 +176,26 @@ class EventConfigurationTest extends TestCase
         $response->assertStatus(403);
         $this->assertStringContainsString('tidak sedang aktif', $response->json('message'));
     }
+
+    public function test_admin_can_add_new_stream_to_event(): void
+    {
+        $admin = Employee::where('employee_index', 'ADMIN001')->first()->user;
+        $event = Event::where('status', Event::STATUS_ACTIVE)->first();
+
+        $response = $this->actingAs($admin)->post("/admin/events/{$event->id}/streams", [
+            'name' => 'TPM Inovasi Mesin',
+            'code' => 'TPM2',
+            'code_pattern' => 'TPM2-{NNN}',
+            'team_min' => 2,
+            'team_max' => 5,
+            'max_projects_per_employee' => 1,
+        ]);
+
+        $response->assertSessionHas('success');
+        $this->assertDatabaseHas('streams', [
+            'event_id' => $event->id,
+            'code' => 'TPM2',
+            'name' => 'TPM Inovasi Mesin',
+        ]);
+    }
 }

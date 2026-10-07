@@ -50,7 +50,7 @@ export default function AuditLogsIndex({ logs, actionTypes = [], filters = {} })
                     <div>
                         <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
                             <Shield className="w-7 h-7 text-emerald-600" />
-                            Audit Trail & Log Aktivitas (ADM-07)
+                            Audit Trail & Log Aktivitas
                         </h1>
                         <p className="text-sm text-slate-600 mt-1">
                             Pencatatan transparan seluruh mutasi krusial: buka kunci project, override seleksi, finalisasi, dan publikasi pemenang.

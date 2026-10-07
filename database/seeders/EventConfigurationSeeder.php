@@ -77,23 +77,8 @@ class EventConfigurationSeeder extends Seeder
             );
         }
 
-        // Scoring Parameters CIC (Verification total: 100%)
-        ScoringParameter::firstOrCreate(
-            ['stream_id' => $cic->id, 'stage' => ScoringParameter::STAGE_VERIFICATION, 'name' => 'Problem Statement & Baseline Data'],
-            ['rubric' => 'Kejelasan latar belakang masalah, ketepatan penetapan KPI dasar, dan dampak terhadap operasional.', 'weight' => 25.00, 'sort_order' => 1]
-        );
-        ScoringParameter::firstOrCreate(
-            ['stream_id' => $cic->id, 'stage' => ScoringParameter::STAGE_VERIFICATION, 'name' => 'Analisis Akar Penyebab (Root Cause)'],
-            ['rubric' => 'Kedalaman analisis menggunakan 5-Why, Fishbone, atau metodologi CI yang tepat.', 'weight' => 25.00, 'sort_order' => 2]
-        );
-        ScoringParameter::firstOrCreate(
-            ['stream_id' => $cic->id, 'stage' => ScoringParameter::STAGE_VERIFICATION, 'name' => 'Eksekusi & Efektivitas Solusi'],
-            ['rubric' => 'Kesesuaian solusi dengan akar masalah, implementasi di lapangan, dan partisipasi tim.', 'weight' => 30.00, 'sort_order' => 3]
-        );
-        ScoringParameter::firstOrCreate(
-            ['stream_id' => $cic->id, 'stage' => ScoringParameter::STAGE_VERIFICATION, 'name' => 'Hasil (Result) & Standardisasi SOP'],
-            ['rubric' => 'Pencapaian target metrik, pencegahan rekurensi, dan pembaruan SOP operasional.', 'weight' => 20.00, 'sort_order' => 4]
-        );
+        // Scoring Parameters CIC (Verification total: 100% - KRITERIA VERIFIKASI IMPROVEMENT BMG 2027)
+        $this->seedStandardVerificationParameters($cic->id);
 
         // Scoring Parameters CIC (Judging total: 100%)
         ScoringParameter::firstOrCreate(
@@ -150,19 +135,8 @@ class EventConfigurationSeeder extends Seeder
             ['name' => 'Safety Improvement Action Plan', 'sort_order' => 1, 'quota' => 10]
         );
 
-        // K3 Verification Parameters (total 100%)
-        ScoringParameter::firstOrCreate(
-            ['stream_id' => $k3->id, 'stage' => ScoringParameter::STAGE_VERIFICATION, 'name' => 'Identifikasi Bahaya & Penilaian Risiko'],
-            ['rubric' => 'Akurasi pemetaan potensi bahaya K3 dan tingkat keparahan risiko operasional.', 'weight' => 30.00, 'sort_order' => 1]
-        );
-        ScoringParameter::firstOrCreate(
-            ['stream_id' => $k3->id, 'stage' => ScoringParameter::STAGE_VERIFICATION, 'name' => 'Inovasi Mitigasi & Eliminasi Bahaya'],
-            ['rubric' => 'Tingkat efektivitas kontrol bahaya berdasarkan hierarki pengendalian risiko K3.', 'weight' => 40.00, 'sort_order' => 2]
-        );
-        ScoringParameter::firstOrCreate(
-            ['stream_id' => $k3->id, 'stage' => ScoringParameter::STAGE_VERIFICATION, 'name' => 'Pembentukan Budaya K3 & Standar Kerja'],
-            ['rubric' => 'Keterlibatan tim kerja dan pembentukan kesadaran keselamatan.', 'weight' => 30.00, 'sort_order' => 3]
-        );
+        // K3 Verification Parameters (total 100% - KRITERIA VERIFIKASI IMPROVEMENT BMG 2027)
+        $this->seedStandardVerificationParameters($k3->id);
 
         // K3 Judging Parameters (total 100%)
         ScoringParameter::firstOrCreate(
@@ -206,14 +180,8 @@ class EventConfigurationSeeder extends Seeder
             ['name' => 'Energy Efficiency Implementation', 'sort_order' => 1, 'quota' => 5]
         );
 
-        ScoringParameter::firstOrCreate(
-            ['stream_id' => $energy->id, 'stage' => ScoringParameter::STAGE_VERIFICATION, 'name' => 'Baseline Konsumsi Energi & Identifikasi Peluang'],
-            ['rubric' => 'Ketepatan audit energi dan data konsumsi listrik/bahan bakar sebelum implementasi.', 'weight' => 40.00, 'sort_order' => 1]
-        );
-        ScoringParameter::firstOrCreate(
-            ['stream_id' => $energy->id, 'stage' => ScoringParameter::STAGE_VERIFICATION, 'name' => 'Penghematan Energi Nyata & Efisiensi'],
-            ['rubric' => 'Persentase reduksi kWh / liter solar / emisi karbon yang berhasil dihemat.', 'weight' => 60.00, 'sort_order' => 2]
-        );
+        // Scoring Parameters Energy (Verification total: 100% - KRITERIA VERIFIKASI IMPROVEMENT BMG 2027)
+        $this->seedStandardVerificationParameters($energy->id);
 
         ScoringParameter::firstOrCreate(
             ['stream_id' => $energy->id, 'stage' => ScoringParameter::STAGE_JUDGING, 'name' => 'Dampak Penghematan Biaya & Efisiensi Energi'],
@@ -228,6 +196,123 @@ class EventConfigurationSeeder extends Seeder
             Phase::firstOrCreate(
                 ['stream_id' => $energy->id, 'phase_type' => $p['type']],
                 ['start_at' => $p['start'], 'end_at' => $p['end'], 'is_locked' => false]
+            );
+        }
+
+        // 5. Stream Total Productive Maintenance (TPM)
+        $tpm = Stream::firstOrCreate(
+            ['event_id' => $event->id, 'code' => Stream::CODE_TPM],
+            [
+                'name' => 'Total Productive Maintenance (TPM)',
+                'code_pattern' => 'TPM-{NNN}',
+                'team_min' => 2,
+                'team_max' => 5,
+                'max_projects_per_employee' => 1,
+                'is_active' => true,
+            ]
+        );
+
+        $tpmDim = CategoryDimension::firstOrCreate(
+            ['stream_id' => $tpm->id, 'code' => 'PILAR'],
+            ['name' => 'Pilar TPM', 'code_order' => 1, 'is_required' => true]
+        );
+
+        $tpmOptions = [
+            ['name' => 'Autonomous Maintenance (Jishu Hozen)', 'abbr' => 'JH', 'quota' => 10],
+            ['name' => 'Planned Maintenance', 'abbr' => 'PM', 'quota' => 10],
+            ['name' => 'Quality Maintenance', 'abbr' => 'QM', 'quota' => 5],
+            ['name' => 'Kaizen / Focused Improvement', 'abbr' => 'KK', 'quota' => 5],
+        ];
+
+        foreach ($tpmOptions as $idx => $opt) {
+            CategoryOption::firstOrCreate(
+                ['dimension_id' => $tpmDim->id, 'abbreviation' => $opt['abbr']],
+                ['name' => $opt['name'], 'sort_order' => $idx + 1, 'quota' => $opt['quota']]
+            );
+        }
+
+        // TPM Scoring Parameters (Verification total: 100% - KRITERIA VERIFIKASI IMPROVEMENT BMG 2027)
+        $this->seedStandardVerificationParameters($tpm->id);
+
+        // TPM Scoring Parameters (Judging total: 100%)
+        ScoringParameter::firstOrCreate(
+            ['stream_id' => $tpm->id, 'stage' => ScoringParameter::STAGE_JUDGING, 'name' => 'Dampak Finansial, Efisiensi Biaya & Peningkatan OEE'],
+            ['rubric' => 'Dampak efisiensi biaya maintenance, penurunan downtime, dan ROI perbaikan.', 'weight' => 35.00, 'sort_order' => 1]
+        );
+        ScoringParameter::firstOrCreate(
+            ['stream_id' => $tpm->id, 'stage' => ScoringParameter::STAGE_JUDGING, 'name' => 'Keterlibatan Operator & Budaya Kerja TPM'],
+            ['rubric' => 'Partisipasi aktif operator lini dan sinergi teknisi pemeliharaan.', 'weight' => 25.00, 'sort_order' => 2]
+        );
+        ScoringParameter::firstOrCreate(
+            ['stream_id' => $tpm->id, 'stage' => ScoringParameter::STAGE_JUDGING, 'name' => 'Inovasi Solusi Preventif & Potensi Replikasi Mesin'],
+            ['rubric' => 'Kaizen sederhana alat bantu dan replikasi standar mesin ke area lainnya.', 'weight' => 20.00, 'sort_order' => 3]
+        );
+        ScoringParameter::firstOrCreate(
+            ['stream_id' => $tpm->id, 'stage' => ScoringParameter::STAGE_JUDGING, 'name' => 'Kualitas Presentasi & Penguasaan Tanya Jawab'],
+            ['rubric' => 'Kejelasan sebelum-sesudah (before-after), video dokumentasi, dan respon pertanyaan juri.', 'weight' => 20.00, 'sort_order' => 4]
+        );
+
+        foreach ($phasesData as $p) {
+            Phase::firstOrCreate(
+                ['stream_id' => $tpm->id, 'phase_type' => $p['type']],
+                ['start_at' => $p['start'], 'end_at' => $p['end'], 'is_locked' => false]
+            );
+        }
+    }
+
+    /**
+     * Standard Verification Parameters (KRITERIA VERIFIKASI IMPROVEMENT BMG 2027)
+     * Total Weight: 100% (internal system weighting)
+     * Kategori Status:
+     * - Pass
+     * - Need Follow Up
+     * - Not Pass
+     */
+    protected function seedStandardVerificationParameters(int $streamId): void
+    {
+        $parameters = [
+            [
+                'name' => 'Keberadaan Lokasi Project yang Sesungguhnya',
+                'rubric' => "Bukti di Lapangan: Lokasi fisik, area kerja, layout proses sebelum–sesudah.\n• Pass: Lokasi/proses project dapat ditemukan dan kondisi aktual sesuai dengan lokasi yang dijelaskan dalam project. Implementasi dapat ditunjukkan secara langsung oleh peserta/operator.\n• Need Follow Up: Lokasi ada tetapi implementasi tidak dapat ditunjukkan secara lengkap, lokasi berubah, atau terdapat perbedaan antara dokumen dengan kondisi aktual yang masih dapat dijelaskan.\n• Not Pass: Lokasi/project tidak ditemukan, tidak ada aktivitas implementasi, atau lokasi yang ditunjukkan tidak sesuai dengan project yang diverifikasi.",
+                'weight' => 15.00,
+                'sort_order' => 1,
+            ],
+            [
+                'name' => 'Bukti Perubahan (Before vs After)',
+                'rubric' => "Bukti di Lapangan: Foto before–after, video implementasi, perubahan fisik yang terlihat.\n• Pass: Kondisi Before dan After dapat diverifikasi melalui observasi, foto, data, atau bukti lain. Perbedaan kondisi jelas dan relevan dengan solusi.\n• Need Follow Up: Perubahan terlihat tetapi bukti Before/After tidak lengkap, kualitas dokumentasi kurang kuat, atau perubahan belum dapat dikonfirmasi secara konsisten.\n• Not Pass: Tidak ditemukan perubahan yang sesuai dengan klaim project atau kondisi aktual bertentangan dengan Before–After yang dilaporkan.",
+                'weight' => 20.00,
+                'sort_order' => 2,
+            ],
+            [
+                'name' => 'Implementasi Solusi Secara Nyata',
+                'rubric' => "Bukti di Lapangan: Sejauh mana improvement sudah terimplementasi (apakah sudah masif, tahap pilot project, atau masih tahap desain).\n• Pass: Solusi telah diterapkan pada proses aktual dan dapat ditunjukkan secara langsung. Perubahan yang dilakukan sesuai dengan solusi yang dijelaskan dalam project.\n• Need Follow Up: Sebagian solusi telah diterapkan, tetapi implementasi belum lengkap atau masih dalam tahap trial/penerapan terbatas.\n• Not Pass: Solusi belum diterapkan atau hanya berupa rencana/dokumen/presentasi tanpa bukti implementasi nyata.",
+                'weight' => 20.00,
+                'sort_order' => 3,
+            ],
+            [
+                'name' => 'Validitas Data Project',
+                'rubric' => "Bukti di Lapangan: Sumber data yang digunakan dan referensi.\n• Pass: Data memiliki sumber yang jelas, periode pengambilan data jelas, metode pengukuran konsisten, dan data dapat ditelusuri ke sumber/original record.\n• Need Follow Up: Data tersedia tetapi terdapat keterbatasan seperti sample terbatas, periode pendek, metode pengukuran kurang jelas, atau sebagian data tidak dapat ditelusuri.\n• Not Pass: Data tidak dapat ditelusuri, sumber tidak jelas, metode pengukuran tidak valid/tidak konsisten, atau terdapat perbedaan signifikan antara data dengan kondisi aktual.",
+                'weight' => 15.00,
+                'sort_order' => 4,
+            ],
+            [
+                'name' => 'Standarisasi & Control',
+                'rubric' => "Bukti di Lapangan: SOP baru, OPL, visual control, perangkat baru, perubahan layout, engineering improvement.\n• Pass: Perubahan telah distandarkan melalui SOP/WI/standard parameter/check sheet/control mechanism atau mekanisme lain yang relevan dan digunakan dalam aktivitas normal.\n• Need Follow Up: Standardisasi sudah mulai dibuat tetapi belum lengkap, belum disosialisasikan, atau belum konsisten digunakan.\n• Not Pass: Tidak terdapat standardisasi dan control setelah improvement.",
+                'weight' => 15.00,
+                'sort_order' => 5,
+            ],
+            [
+                'name' => 'Sustainability / Konsistensi Hasil',
+                'rubric' => "Bukti di Lapangan: Mekanisme monitoring implementasi improvement.\n• Pass: Hasil improvement konsisten dalam periode tertentu dan terdapat mekanisme monitoring/control untuk mempertahankannya.\n• Need Follow Up: Hasil improvement masih terlihat tetapi periode monitoring relatif pendek, data belum konsisten, atau mekanisme sustain belum kuat.\n• Not Pass: Improvement hanya terjadi saat persiapan konvensi, atau tidak ada bukti bahwa hasil dipertahankan.",
+                'weight' => 15.00,
+                'sort_order' => 6,
+            ],
+        ];
+
+        foreach ($parameters as $p) {
+            ScoringParameter::updateOrCreate(
+                ['stream_id' => $streamId, 'stage' => ScoringParameter::STAGE_VERIFICATION, 'name' => $p['name']],
+                ['rubric' => $p['rubric'], 'weight' => $p['weight'], 'sort_order' => $p['sort_order']]
             );
         }
     }

@@ -4,19 +4,21 @@ namespace App\Http\Controllers;
 
 use App\Models\Assignment;
 use App\Models\AuditLog;
+use App\Models\Employee;
 use App\Models\Event;
 use App\Models\Role;
 use App\Models\Stream;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class AssignmentController extends Controller
 {
     /**
-     * Display users management & verifier/judge assignments matrix (ADM-01).
+     * Display users management & verifier/judge assignments matrix.
      */
     public function index(Request $request): Response
     {
@@ -40,25 +42,41 @@ class AssignmentController extends Controller
     }
 
     /**
-     * Assign user to stream and stage (ADM-01).
+     * Assign user or employee to stream and stage.
      */
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'user_id' => ['required', 'exists:users,id'],
+            'user_id' => ['nullable', 'exists:users,id'],
+            'employee_id' => ['nullable', 'exists:employees,id'],
             'stream_id' => ['required', 'exists:streams,id'],
             'stage' => ['required', 'in:verification,judging'],
             'category_option_id' => ['nullable', 'exists:category_options,id'],
         ]);
 
-        $user = User::findOrFail($request->input('user_id'));
+        if (! $request->filled('user_id') && ! $request->filled('employee_id')) {
+            return back()->withErrors(['user_id' => 'Pilih evaluator atau cari karyawan terlebih dahulu.']);
+        }
+
+        if ($request->filled('user_id')) {
+            $user = User::findOrFail($request->input('user_id'));
+        } else {
+            $employee = Employee::findOrFail($request->input('employee_id'));
+            $user = User::firstOrCreate(
+                ['employee_id' => $employee->id],
+                [
+                    'password' => Hash::make('password123'),
+                    'must_change_password' => true,
+                ]
+            );
+        }
+
         $stream = Stream::findOrFail($request->input('stream_id'));
         $stage = $request->input('stage');
 
-        // Check if user has required role
+        // Check if user has required role, auto-assign if not
         $requiredRole = $stage === 'verification' ? Role::VERIFIER : Role::JUDGE;
         if (! $user->hasRole($requiredRole)) {
-            // Auto assign role to user if not already has it
             $roleModel = Role::where('code', $requiredRole)->first();
             if ($roleModel) {
                 $user->roles()->syncWithoutDetaching([$roleModel->id]);
@@ -91,6 +109,69 @@ class AssignmentController extends Controller
         );
 
         return back()->with('success', "Penugasan untuk {$user->employee?->full_name} berhasil ditambahkan.");
+    }
+
+    /**
+     * Promote an employee to evaluator (verifier and/or judge) and optionally assign to a stream.
+     */
+    public function storeEvaluator(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'employee_id' => ['required', 'exists:employees,id'],
+            'roles' => ['required', 'array', 'min:1'],
+            'roles.*' => ['in:verifier,judge'],
+            'stream_id' => ['nullable', 'exists:streams,id'],
+            'stage' => ['nullable', 'in:verification,judging'],
+            'category_option_id' => ['nullable', 'exists:category_options,id'],
+        ]);
+
+        $employee = Employee::findOrFail($request->input('employee_id'));
+
+        // Find or create User for this employee
+        $user = User::firstOrCreate(
+            ['employee_id' => $employee->id],
+            [
+                'password' => Hash::make('password123'),
+                'must_change_password' => true,
+            ]
+        );
+
+        // Attach requested roles
+        $roleCodes = $request->input('roles');
+        $roleIds = Role::whereIn('code', $roleCodes)->pluck('id');
+        $user->roles()->syncWithoutDetaching($roleIds);
+
+        // Optional immediate stream assignment
+        if ($request->filled('stream_id') && $request->filled('stage')) {
+            $stream = Stream::findOrFail($request->input('stream_id'));
+            $stage = $request->input('stage');
+
+            $existing = Assignment::where('user_id', $user->id)
+                ->where('stream_id', $stream->id)
+                ->where('stage', $stage)
+                ->where('category_option_id', $request->input('category_option_id'))
+                ->first();
+
+            if (! $existing) {
+                Assignment::create([
+                    'user_id' => $user->id,
+                    'stream_id' => $stream->id,
+                    'stage' => $stage,
+                    'category_option_id' => $request->input('category_option_id'),
+                ]);
+            }
+        }
+
+        $rolesLabel = implode(' & ', array_map(fn ($r) => $r === 'verifier' ? 'Verifikator' : 'Juri', $roleCodes));
+
+        AuditLog::log(
+            action: 'ADD_EVALUATOR',
+            entityType: 'User',
+            entityId: $user->id,
+            reason: "Menambahkan karyawan {$employee->full_name} ({$employee->employee_index}) sebagai {$rolesLabel}"
+        );
+
+        return back()->with('success', "Karyawan {$employee->full_name} berhasil ditambahkan sebagai {$rolesLabel}.");
     }
 
     /**

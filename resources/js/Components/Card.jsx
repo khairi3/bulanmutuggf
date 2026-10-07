@@ -12,10 +12,13 @@ export default function Card({
     children,
     ...props
 }) {
+    const hasOverflow = className.includes('overflow-');
+
     return (
         <div
             className={clsx(
-                'bg-white rounded-[12px] border border-slate-200/80 shadow-xs overflow-hidden transition-all',
+                'bg-white rounded-[12px] border border-slate-200/80 shadow-xs transition-all',
+                !hasOverflow && 'overflow-hidden',
                 className
             )}
             {...props}

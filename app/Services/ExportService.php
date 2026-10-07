@@ -152,10 +152,8 @@ class ExportService
             'Kategori',
             'Ketua Tim',
             'Unit / Plant',
-            'Rata-rata Verifikasi',
-            'Bobot Verifikasi',
-            'Rata-rata Juri',
-            'Bobot Juri',
+            'Nilai Verifikasi',
+            'Nilai Juri',
             'Nilai Akhir BMG',
             'Waktu Finalisasi',
         ]);
@@ -182,9 +180,7 @@ class ExportService
                 $p->leader?->full_name,
                 $p->leader?->unit,
                 $fr?->verification_score !== null ? $fr->verification_score : '-',
-                "{$fr?->verification_weight}%",
                 $fr?->judging_score !== null ? $fr->judging_score : '-',
-                "{$fr?->judging_weight}%",
                 $fr?->final_score !== null ? $fr->final_score : '-',
                 $p->finalised_at ? $p->finalised_at->format('Y-m-d H:i:s') : '-',
             ]);

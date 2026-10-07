@@ -99,17 +99,17 @@ class RecapServiceTest extends TestCase
 
         $row = $projects->first();
 
-        // Expected: (80 * 0.3) + (90 * 0.7) = 24 + 63 = 87.0
+        // Expected: final_score = 90.0 (murni dari nilai juri)
         $this->assertEquals(80.0, (float) $row['verification_score']);
         $this->assertEquals(90.0, (float) $row['judging_score']);
-        $this->assertEquals(87.0, (float) $row['final_score']);
+        $this->assertEquals(90.0, (float) $row['final_score']);
         $this->assertEquals(1, $row['rank']);
         $this->assertEquals('Juara 1', $row['award_title']);
 
         // Check that final_results table was updated
         $fr = FinalResult::where('project_id', $projectA->id)->first();
         $this->assertNotNull($fr);
-        $this->assertEquals(87.0, (float) $fr->final_score);
+        $this->assertEquals(90.0, (float) $fr->final_score);
         $this->assertEquals(1, $fr->rank_in_category);
     }
 

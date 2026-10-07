@@ -52,10 +52,10 @@ export default function ViewerDashboard({
                         <div>
                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 text-xs font-bold mb-3">
                                 <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
-                                Executive Management Intelligence (REP-02)
+                                Executive Management Intelligence
                             </div>
                             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-                                Dashboard Eksekutif Bulan Mutu GGF 2026
+                                Dashboard Eksekutif Bulan Mutu GGF 2027
                             </h1>
                             <p className="text-sm text-emerald-200/80 mt-1 max-w-xl">
                                 Monitoring holistik inovasi, laju konversi tahapan, dan distribusi partisipasi di seluruh plant & unit bisnis Great Giant Foods.

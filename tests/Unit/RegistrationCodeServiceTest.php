@@ -35,14 +35,16 @@ class RegistrationCodeServiceTest extends TestCase
         $this->assertEquals('BMECHPG1', $prefix);
     }
 
-    public function test_determines_correct_prefix_for_k3_and_energy_streams(): void
+    public function test_determines_correct_prefix_for_k3_and_energy_and_tpm_streams(): void
     {
         $k3 = Stream::where('code', Stream::CODE_K3)->first();
         $energy = Stream::where('code', Stream::CODE_ENERGY)->first();
+        $tpm = Stream::where('code', Stream::CODE_TPM)->first();
         $service = new RegistrationCodeService;
 
         $this->assertEquals('SIGAP', $service->determinePrefix($k3, []));
         $this->assertEquals('ENRG', $service->determinePrefix($energy, []));
+        $this->assertEquals('TPM', $service->determinePrefix($tpm, []));
     }
 
     public function test_generates_fifty_consecutive_unique_registration_codes_without_duplicate(): void

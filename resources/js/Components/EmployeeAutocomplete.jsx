@@ -7,9 +7,10 @@ export default function EmployeeAutocomplete({
     selectedEmployee = null,
     onClear = null,
     placeholder = 'Ketik NIK atau Nama Karyawan (min. 3 karakter)...',
-    label = 'Cari Data Karyawan (Autocomplete EMP-03)',
+    label = 'Cari Data Karyawan',
     required = false,
     className = '',
+    showLevel = true,
 }) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState([]);
@@ -86,7 +87,10 @@ export default function EmployeeAutocomplete({
                                 </span>
                             </div>
                             <p className="text-xs text-slate-500 mt-0.5">
-                                Level: <strong className="text-slate-700">{selectedEmployee.employee_level || '-'}</strong> · Jabatan: {selectedEmployee.position || '-'} · Unit: {selectedEmployee.unit || '-'}
+                                {showLevel && (
+                                    <>Level: <strong className="text-slate-700">{selectedEmployee.employee_level || '-'}</strong> · </>
+                                )}
+                                Jabatan: {selectedEmployee.position || '-'} · Unit: {selectedEmployee.unit || '-'}
                             </p>
                         </div>
                     </div>
@@ -145,9 +149,11 @@ export default function EmployeeAutocomplete({
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                                {emp.employee_level || 'Karyawan'}
-                                            </span>
+                                            {showLevel && (
+                                                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                                    {emp.employee_level || 'Karyawan'}
+                                                </span>
+                                            )}
                                             <p className="text-[10px] text-slate-400 mt-0.5">{emp.unit}</p>
                                         </div>
                                     </button>
