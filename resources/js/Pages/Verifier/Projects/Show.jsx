@@ -471,7 +471,7 @@ export default function VerifierProjectShow({
 
                                                     {/* Fallback plain rubric if not standard format */}
                                                     {param.rubric && !rubricData?.isStandard && (
-                                                        <p className="text-xs text-slate-500 mt-1 pl-8">
+                                                        <p className="text-xs text-slate-500 mt-1 pl-8 whitespace-pre-line">
                                                             {param.rubric}
                                                         </p>
                                                     )}

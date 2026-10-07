@@ -595,9 +595,9 @@ export default function JudgeProjectShow({
                                                             {param.name}
                                                         </h4>
                                                     </div>
-                                                    {param.description && (
-                                                        <p className="text-[11px] text-slate-500 mt-1 ml-7">
-                                                            {param.description}
+                                                    {(param.description || param.rubric) && (
+                                                        <p className="text-[11px] text-slate-500 mt-1 ml-7 whitespace-pre-line">
+                                                            {param.description || param.rubric}
                                                         </p>
                                                     )}
                                                 </div>

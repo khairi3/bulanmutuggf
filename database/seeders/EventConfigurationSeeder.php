@@ -159,11 +159,11 @@ class EventConfigurationSeeder extends Seeder
             );
         }
 
-        // 4. Stream Energy Management
+        // 4. Stream Energy Management (EMI Award)
         $energy = Stream::firstOrCreate(
             ['event_id' => $event->id, 'code' => Stream::CODE_ENERGY],
             [
-                'name' => 'Energy Management Implementation',
+                'name' => 'Energy Management Implementation (EMI Award)',
                 'code_pattern' => 'ENRG-{NNN}',
                 'team_min' => 2,
                 'team_max' => 5,
@@ -171,6 +171,8 @@ class EventConfigurationSeeder extends Seeder
                 'is_active' => true,
             ]
         );
+        $energy->update(['name' => 'Energy Management Implementation (EMI Award)']);
+
         $enrgDim = CategoryDimension::firstOrCreate(
             ['stream_id' => $energy->id, 'code' => 'ENERGY'],
             ['name' => 'Energy Saving Innovation', 'code_order' => 1, 'is_required' => true]
@@ -180,17 +182,8 @@ class EventConfigurationSeeder extends Seeder
             ['name' => 'Energy Efficiency Implementation', 'sort_order' => 1, 'quota' => 5]
         );
 
-        // Scoring Parameters Energy (Verification total: 100% - KRITERIA VERIFIKASI IMPROVEMENT BMG 2027)
-        $this->seedStandardVerificationParameters($energy->id);
-
-        ScoringParameter::firstOrCreate(
-            ['stream_id' => $energy->id, 'stage' => ScoringParameter::STAGE_JUDGING, 'name' => 'Dampak Penghematan Biaya & Efisiensi Energi'],
-            ['rubric' => 'Nilai rupiah yang dihemat dan keberlanjutan solusi inovasi energi.', 'weight' => 60.00, 'sort_order' => 1]
-        );
-        ScoringParameter::firstOrCreate(
-            ['stream_id' => $energy->id, 'stage' => ScoringParameter::STAGE_JUDGING, 'name' => 'Pemaparan Presentasi & Standardisasi'],
-            ['rubric' => 'Kualitas presentasi dan kelengkapan dokumen data logger energi.', 'weight' => 40.00, 'sort_order' => 2]
-        );
+        // Scoring Parameters Energy Management / EMI Award (Verification & Judging total: 100%)
+        $this->seedEmiAwardParameters($energy->id);
 
         foreach ($phasesData as $p) {
             Phase::firstOrCreate(
@@ -316,4 +309,152 @@ class EventConfigurationSeeder extends Seeder
             );
         }
     }
+
+    /**
+     * Scoring Parameters for EMI Award (Energy Management Implementation)
+     * Total Weight: 100% across 7 Criteria Groups (21 sub-parameters)
+     * Configured for both Verification and Judging stages.
+     */
+    protected function seedEmiAwardParameters(int $streamId): void
+    {
+        $parameters = [
+            [
+                'name' => '1.1 Profile Departement',
+                'rubric' => "Kelompok: 1. Pendahuluan (Maks 5%)\nKriteria: Profil Departemen",
+                'weight' => 1.00,
+                'sort_order' => 1,
+            ],
+            [
+                'name' => '1.2 Latar Belakang',
+                'rubric' => "Kelompok: 1. Pendahuluan (Maks 5%)\nKriteria: Latar Belakang Permasalahan & Urgensi Energi",
+                'weight' => 2.00,
+                'sort_order' => 2,
+            ],
+            [
+                'name' => '1.3 Target',
+                'rubric' => "Kelompok: 1. Pendahuluan (Maks 5%)\nKriteria: Sasaran & Target Penghematan Energi",
+                'weight' => 2.00,
+                'sort_order' => 3,
+            ],
+            [
+                'name' => '2.1 Energy Review (Tinjauan Energi)',
+                'rubric' => "Kelompok: 2. Rencana Kerja (Maks 15%)\nKriteria: Tinjauan Konsumsi & Karakteristik Penggunaan Energi",
+                'weight' => 5.00,
+                'sort_order' => 4,
+            ],
+            [
+                'name' => '2.2 Baseline Energi',
+                'rubric' => "Kelompok: 2. Rencana Kerja (Maks 15%)\nKriteria: Penetapan Garis Dasar (Baseline) Konsumsi Energi",
+                'weight' => 2.00,
+                'sort_order' => 5,
+            ],
+            [
+                'name' => '2.3 Batasan Kegiatan',
+                'rubric' => "Kelompok: 2. Rencana Kerja (Maks 15%)\nKriteria: Ruang Lingkup & Batasan Pelaksanaan Kegiatan",
+                'weight' => 1.00,
+                'sort_order' => 6,
+            ],
+            [
+                'name' => '2.4 List Rencana Aksi',
+                'rubric' => "Kelompok: 2. Rencana Kerja (Maks 15%)\nKriteria: Daftar Program Kerja & Rencana Aksi Konkret",
+                'weight' => 5.00,
+                'sort_order' => 7,
+            ],
+            [
+                'name' => '2.5 Rincian Biaya',
+                'rubric' => "Kelompok: 2. Rencana Kerja (Maks 15%)\nKriteria: Estimasi Anggaran & Rincian Biaya Investasi/Operasional",
+                'weight' => 2.00,
+                'sort_order' => 8,
+            ],
+            [
+                'name' => '3.1 Penerapan Manajemen Energi',
+                'rubric' => "Kelompok: 3. Implementasi Kegiatan (Maks 25%)\nKriteria: Penerapan Sistem & Prosedur Manajemen Energi",
+                'weight' => 10.00,
+                'sort_order' => 9,
+            ],
+            [
+                'name' => '3.2 Penerapan Budaya Energy Conservation Behavior*',
+                'rubric' => "Kelompok: 3. Implementasi Kegiatan (Maks 25%)\nKriteria: Penerapan Budaya Energy Conservation Behavior\n* Catatan: Melampirkan lembar assessment yang telah diberikan sebagai monitoring harian untuk penerapan penghematan energi di lingkup perkantoran.",
+                'weight' => 15.00,
+                'sort_order' => 10,
+            ],
+            [
+                'name' => '4.1 Penghematan Energi (kWh/tahun, Liter solar/tahun, kg steam/tahun, dll)',
+                'rubric' => "Kelompok: 4. Dampak (Maks 30%)\nKriteria: Kuantifikasi Nyata Penghematan Energi (kWh/tahun, Liter solar/tahun, kg steam/tahun, dll)",
+                'weight' => 10.00,
+                'sort_order' => 11,
+            ],
+            [
+                'name' => '4.2 Pengaruh Terhadap Lingkungan',
+                'rubric' => "Kelompok: 4. Dampak (Maks 30%)\nKriteria: Dampak Penurunan Emisi Gas Rumah Kaca & Keberlanjutan Lingkungan",
+                'weight' => 10.00,
+                'sort_order' => 12,
+            ],
+            [
+                'name' => '4.3 Pengaruh Terhadap Ekonomi',
+                'rubric' => "Kelompok: 4. Dampak (Maks 30%)\nKriteria: Efisiensi Biaya Finansial & Nilai Penghematan Rupiah",
+                'weight' => 10.00,
+                'sort_order' => 13,
+            ],
+            [
+                'name' => '5.1 Komitmen Top Manajemen',
+                'rubric' => "Kelompok: 5. Sustainability (Keberlanjutan) (Maks 15%)\nKriteria: Dukungan, Kebijakan & Komitmen Nyata Pimpinan",
+                'weight' => 5.00,
+                'sort_order' => 14,
+            ],
+            [
+                'name' => '5.2 Organisasi',
+                'rubric' => "Kelompok: 5. Sustainability (Keberlanjutan) (Maks 15%)\nKriteria: Struktur Tim Energi & Pembagian Peran Organisasi",
+                'weight' => 3.00,
+                'sort_order' => 15,
+            ],
+            [
+                'name' => '5.3 Tingkat Partisipasi dan Keterlibatan',
+                'rubric' => "Kelompok: 5. Sustainability (Keberlanjutan) (Maks 15%)\nKriteria: Keterlibatan Seluruh Karyawan dalam Konservasi Energi",
+                'weight' => 2.00,
+                'sort_order' => 16,
+            ],
+            [
+                'name' => '5.4 Capacity Building',
+                'rubric' => "Kelompok: 5. Sustainability (Keberlanjutan) (Maks 15%)\nKriteria: Program Pelatihan, Sosialisasi & Peningkatan Kompetensi",
+                'weight' => 2.00,
+                'sort_order' => 17,
+            ],
+            [
+                'name' => '5.5 Rencana Jangka Pendek dan Jangka Panjang',
+                'rubric' => "Kelompok: 5. Sustainability (Keberlanjutan) (Maks 15%)\nKriteria: Roadmap Keberlanjutan Rencana Jangka Pendek & Jangka Panjang",
+                'weight' => 3.00,
+                'sort_order' => 18,
+            ],
+            [
+                'name' => '6.1 Kreatif dan Inovasi',
+                'rubric' => "Kelompok: 6. Keaslian (Maks 5%)\nKriteria: Gagasan Baru, Kreativitas Solusi & Orisinalitas Inovasi",
+                'weight' => 3.00,
+                'sort_order' => 19,
+            ],
+            [
+                'name' => '6.2 Lesson Learned',
+                'rubric' => "Kelompok: 6. Keaslian (Maks 5%)\nKriteria: Leasson Learned / Pembelajaran yang Didapat Selama Pelaksanaan & Replikasi",
+                'weight' => 2.00,
+                'sort_order' => 20,
+            ],
+            [
+                'name' => '7. Keseluruhan Tampilan Makalah',
+                'rubric' => "Kelompok: 7. Keseluruhan Tampilan Makalah (Maks 5%)\nKriteria: Kerapian Format, Sistematika Penulisan, Visualisasi Data & Tata Bahasa",
+                'weight' => 5.00,
+                'sort_order' => 21,
+            ],
+        ];
+
+        // Seed for both verification and judging stages
+        foreach ([ScoringParameter::STAGE_VERIFICATION, ScoringParameter::STAGE_JUDGING] as $stage) {
+            foreach ($parameters as $p) {
+                ScoringParameter::updateOrCreate(
+                    ['stream_id' => $streamId, 'stage' => $stage, 'name' => $p['name']],
+                    ['rubric' => $p['rubric'], 'weight' => $p['weight'], 'sort_order' => $p['sort_order']]
+                );
+            }
+        }
+    }
 }
+

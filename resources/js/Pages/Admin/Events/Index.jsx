@@ -862,7 +862,8 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
                                             <div className="flex items-center gap-1.5 w-32 shrink-0">
                                                 <input
                                                     type="number"
-                                                    min="1"
+                                                    min="0.01"
+                                                    step="any"
                                                     max="100"
                                                     value={param.weight}
                                                     onChange={(e) => {
