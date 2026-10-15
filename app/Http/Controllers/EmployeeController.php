@@ -125,6 +125,70 @@ class EmployeeController extends Controller
     }
 
     /**
+     * Quick create employee for participant team registration when not found in master data.
+     */
+    public function quickCreate(Request $request): JsonResponse
+    {
+        $request->validate([
+            'full_name' => ['required', 'string', 'max:150'],
+            'unit' => ['required', 'string', 'max:100'],
+            'position' => ['nullable', 'string', 'max:100'],
+            'employee_index' => ['nullable', 'string', 'max:50'],
+        ], [
+            'full_name.required' => 'Nama lengkap anggota tim wajib diisi.',
+            'unit.required' => 'Unit kerja / perusahaan wajib diisi.',
+        ]);
+
+        $fullName = trim($request->input('full_name'));
+        $unit = trim($request->input('unit'));
+        $position = trim($request->input('position', ''));
+        $employeeIndex = trim($request->input('employee_index', ''));
+
+        // If employee_index was provided, check if it already exists
+        if (! empty($employeeIndex)) {
+            $existing = Employee::where('employee_index', $employeeIndex)->first();
+            if ($existing) {
+                return response()->json([
+                    'success' => true,
+                    'is_existing' => true,
+                    'employee' => $existing,
+                    'message' => "Karyawan dengan NIK {$employeeIndex} sudah ada dan langsung ditambahkan ke tim.",
+                ]);
+            }
+        } else {
+            // Generate temporary unique employee index: EXT-YYMMDD-XXXX
+            do {
+                $employeeIndex = 'EXT-' . date('ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(2)), 0, 4));
+            } while (Employee::where('employee_index', $employeeIndex)->exists());
+        }
+
+        $employee = Employee::create([
+            'employee_index' => $employeeIndex,
+            'full_name' => $fullName,
+            'unit' => $unit,
+            'position' => $position ?: 'Anggota Tim',
+            'employee_level' => 'Manual',
+            'is_active' => true,
+            'is_manual' => true,
+        ]);
+
+        AuditLog::log(
+            action: 'QUICK_CREATE_EMPLOYEE',
+            entityType: 'Employee',
+            entityId: $employee->id,
+            after: $employee->toArray(),
+            reason: "Peserta menambahkan anggota manual: {$fullName} ({$employeeIndex}) - {$unit}"
+        );
+
+        return response()->json([
+            'success' => true,
+            'is_existing' => false,
+            'employee' => $employee,
+            'message' => "Anggota tim \"{$fullName}\" berhasil ditambahkan.",
+        ], 201);
+    }
+
+    /**
      * Toggle employee active status.
      */
     public function toggleActive(Employee $employee): RedirectResponse

@@ -6,6 +6,7 @@ import Button from '@/Components/Button';
 import Input from '@/Components/Input';
 import Stepper from '@/Components/Stepper';
 import EmployeeAutocomplete from '@/Components/EmployeeAutocomplete';
+import Modal from '@/Components/Modal';
 import {
     Layers,
     Users,
@@ -25,6 +26,7 @@ import {
     Paperclip,
     FileSpreadsheet,
     Film,
+    UserPlus,
 } from 'lucide-react';
 
 export default function RegisterWizard({ activeEvent, streams, currentEmployee, draftProject = null }) {
@@ -87,6 +89,84 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
     const [isDragging, setIsDragging] = useState(false);
     const [fileError, setFileError] = useState(null);
 
+    // Manual team member modal state & handlers
+    const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+    const [manualForm, setManualForm] = useState({
+        full_name: '',
+        employee_index: '',
+        unit: '',
+        position: '',
+    });
+    const [isSavingManual, setIsSavingManual] = useState(false);
+    const [manualErrors, setManualErrors] = useState({});
+
+    const handleOpenManualModal = (prefillName = '') => {
+        setManualForm({
+            full_name: prefillName || '',
+            employee_index: '',
+            unit: '',
+            position: '',
+        });
+        setManualErrors({});
+        setIsManualModalOpen(true);
+    };
+
+    const handleSaveManualMember = async (e) => {
+        e?.preventDefault();
+        const errors = {};
+        if (!manualForm.full_name?.trim()) errors.full_name = 'Nama lengkap wajib diisi.';
+        if (!manualForm.unit?.trim()) errors.unit = 'Unit / Departemen / Perusahaan wajib diisi.';
+        if (Object.keys(errors).length > 0) {
+            setManualErrors(errors);
+            return;
+        }
+
+        if (currentStream && teamMembers.length + 1 >= currentStream.team_max) {
+            setManualErrors({ general: `Batas maksimal anggota tim stream ini adalah ${currentStream.team_max} orang.` });
+            return;
+        }
+
+        setIsSavingManual(true);
+        setManualErrors({});
+
+        try {
+            const res = await fetch('/api/employees/quick-create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify(manualForm),
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                setManualErrors(data.errors || { general: data.message || 'Gagal menambahkan anggota manual.' });
+                return;
+            }
+
+            const newEmp = data.employee;
+            if (newEmp.id === currentEmployee?.id) {
+                setManualErrors({ general: 'Ketua tim sudah terdaftar otomatis.' });
+                return;
+            }
+            if (teamMembers.some((m) => m.id === newEmp.id)) {
+                setManualErrors({ general: 'Karyawan sudah ditambahkan ke tim.' });
+                return;
+            }
+
+            setTeamMembers((prev) => [...prev, newEmp]);
+            setIsManualModalOpen(false);
+            setManualForm({ full_name: '', employee_index: '', unit: '', position: '' });
+        } catch (err) {
+            console.error('Error saving manual employee:', err);
+            setManualErrors({ general: 'Terjadi kesalahan sistem saat menyimpan anggota manual.' });
+        } finally {
+            setIsSavingManual(false);
+        }
+    };
+
     const formatBytes = (bytes) => {
         if (!bytes || bytes === 0) return '0 Bytes';
         const k = 1024;
@@ -139,14 +219,39 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
 
     const currentStream = streams.find((s) => s.id === parseInt(selectedStreamId)) || streams[0];
 
-    const wizardSteps = [
-        { label: 'Pilih Stream' },
-        { label: 'Susunan Tim' },
-        { label: 'Kategori' },
-        { label: 'Project Charter' },
-        { label: 'Unggah Berkas' },
-        { label: 'Review & Submit' },
-    ];
+    const activeWizardSteps = React.useMemo(() => {
+        const steps = [
+            { id: 'stream', label: 'Pilih Stream' },
+        ];
+
+        if (currentStream?.enable_team ?? true) {
+            steps.push({ id: 'team', label: 'Susunan Tim' });
+        }
+
+        if (currentStream?.enable_categories ?? true) {
+            steps.push({ id: 'categories', label: 'Kategori' });
+        }
+
+        if (currentStream?.enable_charter ?? true) {
+            steps.push({ id: 'charter', label: 'Project Charter' });
+        }
+
+        if (currentStream?.enable_attachments ?? true) {
+            steps.push({ id: 'attachments', label: 'Unggah Berkas' });
+        }
+
+        steps.push({ id: 'review', label: 'Review & Submit' });
+
+        return steps;
+    }, [currentStream]);
+
+    const currentStepId = activeWizardSteps[step]?.id || 'stream';
+
+    useEffect(() => {
+        if (step >= activeWizardSteps.length) {
+            setStep(Math.max(0, activeWizardSteps.length - 1));
+        }
+    }, [activeWizardSteps.length]);
 
     // Pre-select options for stream when stream changes
     useEffect(() => {
@@ -227,7 +332,7 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
 
     const handleNextStep = () => {
         performAutosave();
-        setStep((prev) => Math.min(prev + 1, 5));
+        setStep((prev) => Math.min(prev + 1, activeWizardSteps.length - 1));
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -319,7 +424,7 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
                             )}
                         </div>
                         <p className="text-sm text-slate-500 mt-1">
-                            Bulan Mutu GGF 2026 · Wizard Pendaftaran 6 Langkah
+                            Bulan Mutu GGF 2026 · Wizard Pendaftaran {activeWizardSteps.length} Langkah
                         </p>
                     </div>
 
@@ -346,7 +451,7 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
             <div className="max-w-4xl mx-auto space-y-6">
                 {/* 1. Progress Stepper */}
                 <Card className="py-2 px-4">
-                    <Stepper steps={wizardSteps} currentStep={step} />
+                    <Stepper steps={activeWizardSteps} currentStep={step} />
                 </Card>
 
                 {/* Validation Error Banner */}
@@ -364,10 +469,10 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
                     </div>
                 )}
 
-                {/* STEP 0: PILIH STREAM */}
-                {step === 0 && (
+                {/* STEP: PILIH STREAM */}
+                {currentStepId === 'stream' && (
                     <Card
-                        title="Langkah 1: Pilih Stream Lomba"
+                        title={`Langkah ${step + 1}: Pilih Stream Lomba`}
                         subtitle="Pilih kategori stream kompetisi Bulan Mutu GGF 2026 yang akan Anda ikuti"
                     >
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
@@ -377,11 +482,10 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
                                     <div
                                         key={s.id}
                                         onClick={() => setSelectedStreamId(s.id)}
-                                        className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${
-                                            isSelected
-                                                ? 'border-emerald-600 bg-emerald-50/40 shadow-md ring-4 ring-emerald-500/10'
-                                                : 'border-slate-200 bg-white hover:border-slate-300'
-                                        }`}
+                                        className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${isSelected
+                                            ? 'border-emerald-600 bg-emerald-50/40 shadow-md ring-4 ring-emerald-500/10'
+                                            : 'border-slate-200 bg-white hover:border-slate-300'
+                                            }`}
                                     >
                                         <div className="flex items-center justify-between mb-3">
                                             <span className="font-mono text-xs px-2 py-0.5 rounded font-bold bg-slate-100 text-slate-700">
@@ -405,10 +509,10 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
                     </Card>
                 )}
 
-                {/* STEP 1: SUSUNAN DATA TIM */}
-                {step === 1 && (
+                {/* STEP: SUSUNAN DATA TIM */}
+                {currentStepId === 'team' && (
                     <Card
-                        title="Langkah 2: Data & Anggota Tim"
+                        title={`Langkah ${step + 1}: Data & Anggota Tim`}
                         subtitle={`Stream ${currentStream.name}: Jumlah tim minimal ${currentStream.team_min} dan maksimal ${currentStream.team_max} orang (termasuk Ketua).`}
                     >
                         <div className="space-y-6">
@@ -437,11 +541,13 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
                                 </div>
                             </div>
 
-                            {/* Tambah Anggota via Autocomplete */}
-                            <div>
+                            {/* Tambah Anggota via Autocomplete & Tombol Tambah Manual */}
+                            <div className="space-y-2">
                                 <EmployeeAutocomplete
-                                    label="Tambah Anggota Tim (EMP-03 Autocomplete)"
-                                    placeholder="Ketik NIK atau Nama karyawan untuk menambah anggota..."
+                                    label="Tambah Anggota Tim"
+                                    placeholder="Ketik Index/KIT atau Nama karyawan untuk menambah anggota..."
+                                    showLevel={false}
+                                    onManualAdd={(query) => handleOpenManualModal(query)}
                                     onSelect={(emp) => {
                                         if (emp.id === currentEmployee?.id) {
                                             alert('Ketua tim sudah terdaftar otomatis.');
@@ -458,6 +564,20 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
                                         setTeamMembers([...teamMembers, emp]);
                                     }}
                                 />
+
+                                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                                    <p className="text-xs text-slate-500">
+                                        Anggota belum ada di sistem? Daftarkan manual
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleOpenManualModal('')}
+                                        className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg transition cursor-pointer"
+                                    >
+                                        <UserPlus className="w-3.5 h-3.5" />
+                                        <span>+ Tambah Anggota Manual</span>
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Daftar Anggota Terpilih */}
@@ -486,9 +606,16 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
                                                     {m.full_name?.charAt(0)}
                                                 </div>
                                                 <div>
-                                                    <span className="font-bold text-sm text-slate-900">{m.full_name}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold text-sm text-slate-900">{m.full_name}</span>
+                                                        {(m.is_manual || m.employee_index?.startsWith('EXT-')) && (
+                                                            <span className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
+                                                                Manual
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <p className="text-xs text-slate-500 font-mono">
-                                                        {m.employee_index} · {m.unit} · {m.employee_level || 'Staff'}
+                                                        {m.employee_index}{m.unit ? ` · ${m.unit}` : ''}
                                                     </p>
                                                 </div>
                                             </div>
@@ -509,10 +636,10 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
                     </Card>
                 )}
 
-                {/* STEP 2: PILIH KATEGORI STREAM & LIVE CODE PREVIEW */}
-                {step === 2 && (
+                {/* STEP: PILIH KATEGORI STREAM & LIVE CODE PREVIEW */}
+                {currentStepId === 'categories' && (
                     <Card
-                        title="Langkah 3: Kategori Lomba & Format Kode"
+                        title={`Langkah ${step + 1}: Kategori Lomba & Format Kode`}
                         subtitle="Pilih dimensi perbaikan. Sistem otomatis menampilkan format kode registrasi Anda."
                     >
                         <div className="space-y-6">
@@ -564,10 +691,10 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
                     </Card>
                 )}
 
-                {/* STEP 3: PROJECT CHARTER (Task 3.3) */}
-                {step === 3 && (
+                {/* STEP: PROJECT CHARTER */}
+                {currentStepId === 'charter' && (
                     <Card
-                        title="Langkah 4: Pengisian Project Charter"
+                        title={`Langkah ${step + 1}: Pengisian Project Charter`}
                         subtitle="Lengkapi deskripsi ringkas, latar belakang, tujuan, tahapan milestone, dan inisiatif perbaikan."
                     >
                         <div className="space-y-5">
@@ -757,13 +884,34 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
                     </Card>
                 )}
 
-                {/* STEP 4: UPLOAD BERKAS & VIDEO (Task 3.6) */}
-                {step === 4 && (
+                {/* STEP: UPLOAD BERKAS & VIDEO */}
+                {currentStepId === 'attachments' && (
                     <Card
-                        title="Langkah 5: Berkas Pendukung & Tautan Video"
+                        title={`Langkah ${step + 1}: Berkas Pendukung & Tautan Video`}
                         subtitle="Unggah dokumen pendukung (PPT/PDF/XLS/JPG) atau tautan video implementasi."
                     >
                         <div className="space-y-6">
+                            {/* Input Judul Project jika Step Charter dinonaktifkan */}
+                            {!activeWizardSteps.some((s) => s.id === 'charter') && (
+                                <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 space-y-2">
+                                    <label className="block text-sm font-bold text-slate-800">
+                                        Judul Project / Inovasi <span className="text-rose-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        maxLength={150}
+                                        placeholder="Contoh: Optimasi Konsumsi Listrik & Efisiensi Energi di Plant A"
+                                        value={charter.title}
+                                        onChange={(e) => setCharter({ ...charter, title: e.target.value })}
+                                        className="w-full p-2.5 rounded-lg border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                                        required
+                                    />
+                                    <div className="flex justify-between items-center text-[11px] text-slate-500">
+                                        <span>Beri judul singkat yang merepresentasikan perbaikan lomba Anda.</span>
+                                        <span className="font-mono">{charter.title.length}/150 karakter</span>
+                                    </div>
+                                </div>
+                            )}
                             {/* File Upload Dropzone */}
                             <div
                                 onDragOver={(e) => {
@@ -779,11 +927,10 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
                                     }
                                 }}
                                 onClick={() => fileInputRef.current?.click()}
-                                className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center transition-all cursor-pointer select-none ${
-                                    isDragging
-                                        ? 'border-emerald-500 bg-emerald-50 scale-[1.01]'
-                                        : 'border-slate-300 hover:border-emerald-500 bg-slate-50 hover:bg-emerald-50/20'
-                                }`}
+                                className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center transition-all cursor-pointer select-none ${isDragging
+                                    ? 'border-emerald-500 bg-emerald-50 scale-[1.01]'
+                                    : 'border-slate-300 hover:border-emerald-500 bg-slate-50 hover:bg-emerald-50/20'
+                                    }`}
                             >
                                 <input
                                     ref={fileInputRef}
@@ -886,15 +1033,15 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
                     </Card>
                 )}
 
-                {/* STEP 5: REVIEW RINGKASAN & SUBMIT */}
-                {step === 5 && (
+                {/* STEP: REVIEW RINGKASAN & SUBMIT */}
+                {currentStepId === 'review' && (
                     <Card
-                        title="Langkah 6: Tinjau Ringkasan & Konfirmasi Pengajuan"
+                        title={`Langkah ${step + 1}: Tinjau Ringkasan & Konfirmasi Pengajuan`}
                         subtitle="Periksa kembali ringkasan project sebelum mengirimkan registrasi resmi ke panitia."
                     >
                         <div className="space-y-5">
                             {/* Summary Box */}
-                            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 text-xs">
+                            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 text-sm">
                                 <div className="flex justify-between border-b border-slate-200 pb-2">
                                     <span className="font-bold text-slate-500">Stream Lomba:</span>
                                     <span className="font-bold text-slate-900">{currentStream.name}</span>
@@ -927,10 +1074,12 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
                                         <span className="font-mono text-emerald-700 truncate max-w-xs">{externalVideoUrl}</span>
                                     </div>
                                 )}
-                                <div className="flex justify-between">
-                                    <span className="font-bold text-slate-500">Key Milestones:</span>
-                                    <span className="font-bold text-slate-900">{charter.milestones.length} Tahapan</span>
-                                </div>
+                                {activeWizardSteps.some((s) => s.id === 'charter') && (
+                                    <div className="flex justify-between">
+                                        <span className="font-bold text-slate-500">Key Milestones:</span>
+                                        <span className="font-bold text-slate-900">{charter.milestones.length} Tahapan</span>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Originality Checkbox */}
@@ -964,7 +1113,7 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
                         </Link>
                     )}
 
-                    {step < 5 ? (
+                    {step < activeWizardSteps.length - 1 ? (
                         <Button variant="primary" onClick={handleNextStep}>
                             <span>Lanjutkan</span>
                             <ArrowRight className="w-4 h-4 ml-2" />
@@ -981,6 +1130,108 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
                         </Button>
                     )}
                 </div>
+
+                {/* Modal Tambah Anggota Manual */}
+                <Modal
+                    isOpen={isManualModalOpen}
+                    onClose={() => setIsManualModalOpen(false)}
+                    title="Tambah Anggota Tim Manual"
+                    description="Gunakan formulir ini jika anggota tim belum terdaftar di sistem."
+                    maxWidth="md"
+                >
+                    <form onSubmit={handleSaveManualMember} className="space-y-4 pt-1">
+                        {manualErrors.general && (
+                            <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+                                {manualErrors.general}
+                            </div>
+                        )}
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                                Nama Lengkap <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={manualForm.full_name}
+                                onChange={(e) => setManualForm({ ...manualForm, full_name: e.target.value })}
+                                placeholder="Contoh: Budi Santoso"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                                required
+                            />
+                            {manualErrors.full_name && (
+                                <p className="text-xs text-rose-600 mt-1">{manualErrors.full_name}</p>
+                            )}
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                                Index / KIT <span className="text-slate-400 font-normal">(Opsional)</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={manualForm.employee_index}
+                                onChange={(e) => setManualForm({ ...manualForm, employee_index: e.target.value })}
+                                placeholder="Kosongkan jika tidak ada Index/KIT resmi"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                            />
+                            <p className="text-[11px] text-slate-400 mt-1">
+                                Jika dikosongkan, sistem akan otomatis membuat NIK khusus bertanda <span className="font-mono text-slate-600">EXT-YYMMDD-XXXX</span>.
+                            </p>
+                            {manualErrors.employee_index && (
+                                <p className="text-xs text-rose-600 mt-1">{manualErrors.employee_index}</p>
+                            )}
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                                Unit / Departemen / Perusahaan <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={manualForm.unit}
+                                onChange={(e) => setManualForm({ ...manualForm, unit: e.target.value })}
+                                placeholder="Contoh: Production & Sourcing"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                                required
+                            />
+                            {manualErrors.unit && (
+                                <p className="text-xs text-rose-600 mt-1">{manualErrors.unit}</p>
+                            )}
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                                Jabatan / Peran <span className="text-slate-400 font-normal">(Opsional)</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={manualForm.position}
+                                onChange={(e) => setManualForm({ ...manualForm, position: e.target.value })}
+                                placeholder="Contoh: Field Operator, Teknisi, Konsultan"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                            />
+                        </div>
+
+                        <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => setIsManualModalOpen(false)}
+                                disabled={isSavingManual}
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                type="submit"
+                                variant="primary"
+                                loading={isSavingManual}
+                                disabled={isSavingManual}
+                            >
+                                Simpan & Tambahkan ke Tim
+                            </Button>
+                        </div>
+                    </form>
+                </Modal>
             </div>
         </AppLayout>
     );

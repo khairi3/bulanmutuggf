@@ -20,12 +20,14 @@ class Employee extends Model
         'email',
         'phone',
         'is_active',
+        'is_manual',
     ];
 
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
+            'is_manual' => 'boolean',
         ];
     }
 

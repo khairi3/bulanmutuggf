@@ -53,6 +53,7 @@ Route::get('/api/employees/search', [EmployeeController::class, 'search'])->name
 // Authenticated Routes
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::post('/api/employees/quick-create', [EmployeeController::class, 'quickCreate'])->name('api.employees.quick_create');
 
     // Mandatory Password Change Routes
     Route::get('/change-password', [AuthController::class, 'showChangePassword'])->name('password.change.notice');
@@ -142,6 +143,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/feedback/{feedback}/reply', [ParticipantProjectController::class, 'replyFeedback'])->name('feedback.reply');
         Route::post('/feedback/{feedback}/resolve', [ParticipantProjectController::class, 'resolveFeedback'])->name('feedback.resolve');
         Route::post('/projects/{project}/finalise', [ParticipantProjectController::class, 'finaliseProject'])->name('projects.finalise');
+        Route::delete('/projects/{project}', [ParticipantProjectController::class, 'destroy'])->name('projects.destroy');
     });
 
     // Verifier Area (Phase 4, 5 & 6)

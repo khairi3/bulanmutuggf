@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, UserCheck, Loader2, X, Check } from 'lucide-react';
+import { Search, UserCheck, Loader2, X, Check, UserPlus } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function EmployeeAutocomplete({
     onSelect,
     selectedEmployee = null,
     onClear = null,
-    placeholder = 'Ketik NIK atau Nama Karyawan (min. 3 karakter)...',
+    placeholder = 'Ketik Index/KIT atau Nama Karyawan (min. 3 karakter)...',
     label = 'Cari Data Karyawan',
     required = false,
     className = '',
     showLevel = true,
+    onManualAdd = null,
 }) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState([]);
@@ -126,8 +127,23 @@ export default function EmployeeAutocomplete({
                     {isOpen && (
                         <div className="absolute z-50 mt-1.5 w-full rounded-xl bg-white shadow-xl border border-slate-200 max-h-72 overflow-y-auto py-1">
                             {results.length === 0 ? (
-                                <div className="px-4 py-3 text-xs text-slate-500 text-center">
-                                    Tidak ada karyawan aktif yang cocok dengan pencarian "{query}".
+                                <div className="p-4 text-center space-y-2.5">
+                                    <p className="text-xs text-slate-500">
+                                        Tidak ada karyawan aktif yang cocok dengan pencarian "{query}".
+                                    </p>
+                                    {onManualAdd && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsOpen(false);
+                                                onManualAdd(query);
+                                            }}
+                                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition cursor-pointer"
+                                        >
+                                            <UserPlus className="w-3.5 h-3.5" />
+                                            <span>Tambah "{query}" sebagai Anggota Manual</span>
+                                        </button>
+                                    )}
                                 </div>
                             ) : (
                                 results.map((emp) => (
@@ -148,13 +164,17 @@ export default function EmployeeAutocomplete({
                                                 </p>
                                             </div>
                                         </div>
-                                        <div className="text-right">
+                                        <div className="text-right shrink-0">
                                             {showLevel && (
                                                 <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                                                     {emp.employee_level || 'Karyawan'}
                                                 </span>
                                             )}
-                                            <p className="text-[10px] text-slate-400 mt-0.5">{emp.unit}</p>
+                                            {emp.unit && (
+                                                <p className={clsx('text-slate-400', showLevel ? 'text-[10px] mt-0.5' : 'text-xs font-medium')}>
+                                                    {emp.unit}
+                                                </p>
+                                            )}
                                         </div>
                                     </button>
                                 ))

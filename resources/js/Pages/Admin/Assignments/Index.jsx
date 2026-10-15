@@ -179,13 +179,12 @@ export default function AssignmentsIndex({ users, streams, roles, activeEvent })
                                                     {u.roles?.map((r) => (
                                                         <span
                                                             key={r.code}
-                                                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                                                                r.code === 'verifier'
-                                                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                                                    : r.code === 'judge'
+                                                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${r.code === 'verifier'
+                                                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                                                : r.code === 'judge'
                                                                     ? 'bg-purple-50 text-purple-800 border-purple-200'
                                                                     : 'bg-slate-100 text-slate-700 border-slate-200'
-                                                            }`}
+                                                                }`}
                                                         >
                                                             {r.name}
                                                         </span>
@@ -235,11 +234,10 @@ export default function AssignmentsIndex({ users, streams, roles, activeEvent })
                                                     <button
                                                         type="button"
                                                         onClick={() => handleToggleRole(u.id, 'verifier')}
-                                                        className={`text-xs px-2 py-1 rounded font-semibold border ${
-                                                            u.roles?.some((r) => r.code === 'verifier')
-                                                                ? 'bg-amber-100 text-amber-800 border-amber-300'
-                                                                : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
-                                                        }`}
+                                                        className={`text-xs px-2 py-1 rounded font-semibold border ${u.roles?.some((r) => r.code === 'verifier')
+                                                            ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                                            : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                                                            }`}
                                                         title="Toggle Peran Verifikator"
                                                     >
                                                         Verifikator
@@ -247,11 +245,10 @@ export default function AssignmentsIndex({ users, streams, roles, activeEvent })
                                                     <button
                                                         type="button"
                                                         onClick={() => handleToggleRole(u.id, 'judge')}
-                                                        className={`text-xs px-2 py-1 rounded font-semibold border ${
-                                                            u.roles?.some((r) => r.code === 'judge')
-                                                                ? 'bg-purple-100 text-purple-800 border-purple-300'
-                                                                : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
-                                                        }`}
+                                                        className={`text-xs px-2 py-1 rounded font-semibold border ${u.roles?.some((r) => r.code === 'judge')
+                                                            ? 'bg-purple-100 text-purple-800 border-purple-300'
+                                                            : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                                                            }`}
                                                         title="Toggle Peran Juri"
                                                     >
                                                         Juri
@@ -301,11 +298,10 @@ export default function AssignmentsIndex({ users, streams, roles, activeEvent })
                                     setAssignMode('existing');
                                     assignForm.setData('employee_id', '');
                                 }}
-                                className={`flex-1 py-1.5 px-3 rounded-md transition ${
-                                    assignMode === 'existing'
-                                        ? 'bg-white text-emerald-800 shadow-xs'
-                                        : 'text-slate-600 hover:text-slate-900'
-                                }`}
+                                className={`flex-1 py-1.5 px-3 rounded-md transition ${assignMode === 'existing'
+                                    ? 'bg-white text-emerald-800 shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                    }`}
                             >
                                 Evaluator Terdaftar ({users.length})
                             </button>
@@ -315,11 +311,10 @@ export default function AssignmentsIndex({ users, streams, roles, activeEvent })
                                     setAssignMode('search');
                                     assignForm.setData('user_id', '');
                                 }}
-                                className={`flex-1 py-1.5 px-3 rounded-md transition ${
-                                    assignMode === 'search'
-                                        ? 'bg-white text-emerald-800 shadow-xs'
-                                        : 'text-slate-600 hover:text-slate-900'
-                                }`}
+                                className={`flex-1 py-1.5 px-3 rounded-md transition ${assignMode === 'search'
+                                    ? 'bg-white text-emerald-800 shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                    }`}
                             >
                                 Cari Karyawan Baru
                             </button>
@@ -459,7 +454,7 @@ export default function AssignmentsIndex({ users, streams, roles, activeEvent })
                                 setSelectedEmployeeForAdd(null);
                                 evaluatorForm.setData('employee_id', '');
                             }}
-                            placeholder="Ketik NIK atau Nama Karyawan..."
+                            placeholder="Ketik Index/KIT atau Nama Karyawan..."
                             label=""
                         />
                         {evaluatorForm.errors.employee_id && (
@@ -474,11 +469,10 @@ export default function AssignmentsIndex({ users, streams, roles, activeEvent })
                         </label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <label
-                                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
-                                    evaluatorForm.data.roles.includes('verifier')
-                                        ? 'bg-amber-50/70 border-amber-300 ring-1 ring-amber-300'
-                                        : 'bg-white border-slate-200 hover:bg-slate-50'
-                                }`}
+                                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${evaluatorForm.data.roles.includes('verifier')
+                                    ? 'bg-amber-50/70 border-amber-300 ring-1 ring-amber-300'
+                                    : 'bg-white border-slate-200 hover:bg-slate-50'
+                                    }`}
                             >
                                 <input
                                     type="checkbox"
@@ -495,11 +489,10 @@ export default function AssignmentsIndex({ users, streams, roles, activeEvent })
                             </label>
 
                             <label
-                                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
-                                    evaluatorForm.data.roles.includes('judge')
-                                        ? 'bg-purple-50/70 border-purple-300 ring-1 ring-purple-300'
-                                        : 'bg-white border-slate-200 hover:bg-slate-50'
-                                }`}
+                                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${evaluatorForm.data.roles.includes('judge')
+                                    ? 'bg-purple-50/70 border-purple-300 ring-1 ring-purple-300'
+                                    : 'bg-white border-slate-200 hover:bg-slate-50'
+                                    }`}
                             >
                                 <input
                                     type="checkbox"

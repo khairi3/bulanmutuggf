@@ -1,10 +1,11 @@
-import React from 'react';
-import { Head, usePage, Link } from '@inertiajs/react';
+import React, { useState } from 'react';
+import { Head, usePage, Link, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import Card from '@/Components/Card';
 import Badge from '@/Components/Badge';
 import Stepper from '@/Components/Stepper';
 import Button from '@/Components/Button';
+import Modal from '@/Components/Modal';
 import {
     FolderPlus,
     FileText,
@@ -18,12 +19,28 @@ import {
     Award,
     TrendingUp,
     Layers,
-    ChevronRight
+    ChevronRight,
+    Trash2,
+    AlertTriangle,
 } from 'lucide-react';
 
 export default function ParticipantDashboard({ projects = [], activeEvent }) {
     const { auth, certificates } = usePage().props;
     const employee = auth?.user?.employee;
+    const [deletingDraft, setDeletingDraft] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleConfirmDelete = () => {
+        if (!deletingDraft) return;
+        setIsDeleting(true);
+        router.delete(`/participant/projects/${deletingDraft.id}`, {
+            preserveScroll: true,
+            onFinish: () => {
+                setIsDeleting(false);
+                setDeletingDraft(null);
+            },
+        });
+    };
 
     const sampleSteps = [
         { label: 'Draft' },
@@ -265,6 +282,16 @@ export default function ParticipantDashboard({ projects = [], activeEvent }) {
 
                                         {proj.status === 'draft' ? (
                                             <div className="flex items-center gap-2">
+                                                {isLeader && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDeletingDraft(proj)}
+                                                        className="p-1.5 rounded-xl border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition"
+                                                        title="Hapus Draft Project"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
                                                 <Link
                                                     href={`/participant/projects/${proj.id}`}
                                                     className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
@@ -295,6 +322,46 @@ export default function ParticipantDashboard({ projects = [], activeEvent }) {
                     </div>
                 )}
             </div>
+
+            {/* Modal Konfirmasi Hapus Draft */}
+            <Modal
+                isOpen={Boolean(deletingDraft)}
+                onClose={() => !isDeleting && setDeletingDraft(null)}
+                title="Hapus Draft Project?"
+                maxWidth="sm"
+            >
+                <div className="space-y-4 pt-1">
+                    <div className="flex items-start gap-3 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800">
+                        <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                        <div className="text-xs leading-relaxed">
+                            <p className="font-bold">Tindakan ini tidak dapat dibatalkan.</p>
+                            <p className="mt-1 text-rose-700">
+                                Draft project <strong>"{deletingDraft?.title}"</strong> beserta seluruh susunan tim dan berkas yang tersimpan akan dihapus secara permanen.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={isDeleting}
+                            onClick={() => setDeletingDraft(null)}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            variant="danger"
+                            size="sm"
+                            loading={isDeleting}
+                            onClick={handleConfirmDelete}
+                        >
+                            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                            <span>Hapus Draft</span>
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </AppLayout>
     );
 }

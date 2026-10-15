@@ -192,6 +192,10 @@ class EventController extends Controller
             'team_max' => ['required', 'integer', 'min:1', 'max:20', 'gte:team_min'],
             'max_projects_per_employee' => ['required', 'integer', 'min:1', 'max:10'],
             'code_pattern' => ['required', 'string', 'max:100'],
+            'enable_team' => ['sometimes', 'boolean'],
+            'enable_categories' => ['sometimes', 'boolean'],
+            'enable_charter' => ['sometimes', 'boolean'],
+            'enable_attachments' => ['sometimes', 'boolean'],
         ]);
 
         $stream->update([
@@ -199,17 +203,21 @@ class EventController extends Controller
             'team_max' => $request->input('team_max'),
             'max_projects_per_employee' => $request->input('max_projects_per_employee'),
             'code_pattern' => $request->input('code_pattern'),
+            'enable_team' => $request->boolean('enable_team', true),
+            'enable_categories' => $request->boolean('enable_categories', true),
+            'enable_charter' => $request->boolean('enable_charter', true),
+            'enable_attachments' => $request->boolean('enable_attachments', true),
         ]);
 
         AuditLog::log(
             action: 'UPDATE_STREAM_RULES',
             entityType: 'Stream',
             entityId: $stream->id,
-            after: $stream->only(['team_min', 'team_max', 'max_projects_per_employee', 'code_pattern']),
-            reason: "Pembaruan aturan tim dan pola kode untuk stream {$stream->name}"
+            after: $stream->only(['team_min', 'team_max', 'max_projects_per_employee', 'code_pattern', 'enable_team', 'enable_categories', 'enable_charter', 'enable_attachments']),
+            reason: "Pembaruan aturan tim dan langkah pendaftaran stream {$stream->name}"
         );
 
-        return back()->with('success', "Aturan tim stream {$stream->name} berhasil disimpan.");
+        return back()->with('success', "Aturan tim dan langkah registrasi stream {$stream->name} berhasil disimpan.");
     }
 
     /**

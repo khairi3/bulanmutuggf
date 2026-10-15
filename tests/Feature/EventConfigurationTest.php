@@ -198,4 +198,91 @@ class EventConfigurationTest extends TestCase
             'name' => 'TPM Inovasi Mesin',
         ]);
     }
+
+    public function test_admin_can_update_stream_wizard_step_toggles(): void
+    {
+        $admin = Employee::where('employee_index', 'ADMIN001')->first()->user;
+        $stream = Stream::first();
+
+        $response = $this->actingAs($admin)->post("/admin/streams/{$stream->id}/rules", [
+            'team_min' => 2,
+            'team_max' => 6,
+            'max_projects_per_employee' => 2,
+            'code_pattern' => 'TEST-{NNN}',
+            'enable_team' => true,
+            'enable_categories' => false,
+            'enable_charter' => false,
+            'enable_attachments' => true,
+        ]);
+
+        $response->assertSessionHas('success');
+        $this->assertDatabaseHas('streams', [
+            'id' => $stream->id,
+            'enable_categories' => false,
+            'enable_charter' => false,
+            'enable_attachments' => true,
+        ]);
+    }
+
+    public function test_participant_can_submit_project_without_charter_when_stream_charter_is_disabled(): void
+    {
+        $participant = Employee::where('employee_index', 'EMP1007')->first()->user;
+        $stream = Stream::where('code', 'ENERGY')->first();
+        $stream->update([
+            'enable_charter' => false,
+            'enable_categories' => false,
+            'team_min' => 1,
+            'team_max' => 5,
+        ]);
+
+        // Submit without charter fields (problem_statement, goal_statement, milestones, initiatives)
+        $response = $this->actingAs($participant)->post('/participant/projects/submit', [
+            'stream_id' => $stream->id,
+            'title' => 'Program Efisiensi Energi Listrik 2026',
+            'agree_originality' => '1',
+            'member_employee_ids' => [],
+        ]);
+
+        $response->assertSessionHas('success');
+        $this->assertDatabaseHas('projects', [
+            'stream_id' => $stream->id,
+            'title' => 'Program Efisiensi Energi Listrik 2026',
+        ]);
+    }
+
+    public function test_leader_can_delete_draft_project(): void
+    {
+        $employee = Employee::where('employee_index', 'EMP1007')->first();
+        $stream = Stream::first();
+
+        $project = \App\Models\Project::create([
+            'stream_id' => $stream->id,
+            'title' => 'Draft Inovasi untuk Dihapus',
+            'leader_employee_id' => $employee->id,
+            'status' => \App\Models\Project::STATUS_DRAFT,
+        ]);
+
+        $response = $this->actingAs($employee->user)->delete("/participant/projects/{$project->id}");
+
+        $response->assertSessionHas('success');
+        $this->assertDatabaseMissing('projects', ['id' => $project->id]);
+    }
+
+    public function test_cannot_delete_submitted_project(): void
+    {
+        $employee = Employee::where('employee_index', 'EMP1007')->first();
+        $stream = Stream::first();
+
+        $project = \App\Models\Project::create([
+            'stream_id' => $stream->id,
+            'title' => 'Project Yang Sudah Submit',
+            'leader_employee_id' => $employee->id,
+            'status' => \App\Models\Project::STATUS_SUBMITTED,
+        ]);
+
+        $response = $this->actingAs($employee->user)->delete("/participant/projects/{$project->id}");
+
+        $response->assertSessionHas('error');
+        $this->assertDatabaseHas('projects', ['id' => $project->id]);
+    }
 }

@@ -224,45 +224,76 @@ class ParticipantProjectController extends Controller
             abort(403, 'Hanya karyawan terdaftar yang dapat mendaftar.');
         }
 
-        $request->validate([
+        $streamId = $request->input('stream_id');
+        $stream = Stream::with('categoryDimensions')->findOrFail($streamId);
+
+        $rules = [
             'stream_id' => ['required', 'exists:streams,id'],
             'title' => ['required', 'string', 'max:150'],
-            'executive_summary' => ['required', 'string', 'max:1500'],
-            'problem_statement' => ['required', 'string', 'max:1500'],
-            'goal_statement' => ['required', 'string', 'max:1000'],
-            'category_option_ids' => ['required', 'array', 'min:1'],
-            'category_option_ids.*' => ['exists:category_options,id'],
-            'member_employee_ids' => ['array'],
-            'member_employee_ids.*' => ['exists:employees,id'],
-            'milestones' => ['required', 'array', 'min:1'],
-            'milestones.*.milestone' => ['required', 'string'],
-            'initiatives' => ['required', 'array', 'min:1'],
-            'initiatives.*.initiative' => ['required', 'string'],
-            'external_url' => ['nullable', 'url', 'max:500'],
-            'files' => ['nullable', 'array'],
-            'files.*' => ['file', 'mimes:pdf,ppt,pptx,xls,xlsx,jpg,jpeg,png,mp4', 'max:102400'],
             'agree_originality' => ['accepted'],
-        ], [
-            'agree_originality.accepted' => 'Anda wajib mencentang pernyataan orisinalitas karya.',
-            'category_option_ids.required' => 'Pilihan kategori stream wajib dilengkapi.',
-            'milestones.min' => 'Key Milestone wajib diisi minimal 1 baris.',
-            'initiatives.min' => 'Inisiatif perbaikan wajib diisi minimal 1 item.',
-            'external_url.url' => 'Format tautan video tidak valid.',
-            'files.*.max' => 'Ukuran berkas maksimal adalah 100 MB.',
-            'files.*.mimes' => 'Format berkas harus berupa PPT, PPTX, PDF, XLS, XLSX, JPG, PNG, atau MP4.',
-        ]);
+        ];
 
-        $stream = Stream::with('categoryDimensions')->findOrFail($request->input('stream_id'));
+        $messages = [
+            'agree_originality.accepted' => 'Anda wajib mencentang pernyataan orisinalitas karya.',
+            'title.required' => 'Judul project wajib diisi.',
+        ];
+
+        // Conditional validation based on stream wizard settings
+        if ($stream->enable_charter) {
+            $rules['executive_summary'] = ['required', 'string', 'max:1500'];
+            $rules['problem_statement'] = ['required', 'string', 'max:1500'];
+            $rules['goal_statement'] = ['required', 'string', 'max:1000'];
+            $rules['milestones'] = ['required', 'array', 'min:1'];
+            $rules['milestones.*.milestone'] = ['required', 'string'];
+            $rules['initiatives'] = ['required', 'array', 'min:1'];
+            $rules['initiatives.*.initiative'] = ['required', 'string'];
+
+            $messages['milestones.min'] = 'Key Milestone wajib diisi minimal 1 baris.';
+            $messages['initiatives.min'] = 'Inisiatif perbaikan wajib diisi minimal 1 item.';
+        } else {
+            $rules['executive_summary'] = ['nullable', 'string', 'max:1500'];
+            $rules['problem_statement'] = ['nullable', 'string', 'max:1500'];
+            $rules['goal_statement'] = ['nullable', 'string', 'max:1000'];
+            $rules['milestones'] = ['nullable', 'array'];
+            $rules['initiatives'] = ['nullable', 'array'];
+        }
+
+        if ($stream->enable_categories && $stream->categoryDimensions->isNotEmpty()) {
+            $rules['category_option_ids'] = ['required', 'array', 'min:1'];
+            $rules['category_option_ids.*'] = ['exists:category_options,id'];
+            $messages['category_option_ids.required'] = 'Pilihan kategori stream wajib dilengkapi.';
+        } else {
+            $rules['category_option_ids'] = ['nullable', 'array'];
+        }
+
+        if ($stream->enable_team) {
+            $rules['member_employee_ids'] = ['array'];
+            $rules['member_employee_ids.*'] = ['exists:employees,id'];
+        } else {
+            $rules['member_employee_ids'] = ['nullable', 'array'];
+        }
+
+        $rules['external_url'] = ['nullable', 'url', 'max:500'];
+        $rules['files'] = ['nullable', 'array'];
+        $rules['files.*'] = ['file', 'mimes:pdf,ppt,pptx,xls,xlsx,jpg,jpeg,png,mp4', 'max:102400'];
+
+        $messages['external_url.url'] = 'Format tautan video tidak valid.';
+        $messages['files.*.max'] = 'Ukuran berkas maksimal adalah 100 MB.';
+        $messages['files.*.mimes'] = 'Format berkas harus berupa PPT, PPTX, PDF, XLS, XLSX, JPG, PNG, atau MP4.';
+
+        $request->validate($rules, $messages);
 
         // Validate Team Size (CFG-06)
-        $memberIds = array_unique((array) $request->input('member_employee_ids', []));
-        $allTeamIds = array_unique(array_merge([$leaderEmployee->id], $memberIds));
-        $teamCount = count($allTeamIds);
+        if ($stream->enable_team) {
+            $memberIds = array_unique((array) $request->input('member_employee_ids', []));
+            $allTeamIds = array_unique(array_merge([$leaderEmployee->id], $memberIds));
+            $teamCount = count($allTeamIds);
 
-        if ($teamCount < $stream->team_min || $teamCount > $stream->team_max) {
-            throw ValidationException::withMessages([
-                'member_employee_ids' => "Jumlah anggota tim untuk stream {$stream->name} harus antara {$stream->team_min} sampai {$stream->team_max} orang (saat ini {$teamCount} orang).",
-            ]);
+            if ($teamCount < $stream->team_min || $teamCount > $stream->team_max) {
+                throw ValidationException::withMessages([
+                    'member_employee_ids' => "Jumlah anggota tim untuk stream {$stream->name} harus antara {$stream->team_min} sampai {$stream->team_max} orang (saat ini {$teamCount} orang).",
+                ]);
+            }
         }
 
         // Validate max projects per employee in this stream
@@ -298,7 +329,8 @@ class ParticipantProjectController extends Controller
             }
 
             // Generate Unique Registration Code (PAR-03)
-            $regCode = $this->codeService->generateCode($stream, $request->input('category_option_ids'));
+            $categoryOptionIds = (array) $request->input('category_option_ids', []);
+            $regCode = $this->codeService->generateCode($stream, $categoryOptionIds);
 
             $project->update([
                 'title' => $request->input('title'),
@@ -309,7 +341,7 @@ class ParticipantProjectController extends Controller
             ]);
 
             // Sync categories
-            $project->categories()->sync($request->input('category_option_ids'));
+            $project->categories()->sync($categoryOptionIds);
 
             // Sync team members
             $project->teamMembers()->delete();
@@ -867,5 +899,43 @@ class ParticipantProjectController extends Controller
         });
 
         return back()->with('success', "Selamat! Project {$project->registration_code} berhasil di-Finalise dan data telah dikunci untuk penjurian Convention Day.");
+    }
+
+    /**
+     * Delete a draft project.
+     */
+    public function destroy(Request $request, Project $project): RedirectResponse
+    {
+        $user = $request->user();
+
+        // Ensure user is the leader of this project or an admin
+        if ($project->leader_employee_id !== $user->employee_id && ! $user->hasRole('admin')) {
+            abort(403, 'Hanya ketua tim yang dapat menghapus draft project ini.');
+        }
+
+        if ($project->status !== Project::STATUS_DRAFT) {
+            return back()->with('error', 'Hanya project dengan status Draft yang dapat dihapus.');
+        }
+
+        $title = $project->title;
+
+        DB::transaction(function () use ($project, $title) {
+            $project->teamMembers()->delete();
+            $project->categories()->detach();
+            $project->charterVersions()->delete();
+            $project->files()->delete();
+            $project->forceDelete();
+
+            AuditLog::log(
+                action: 'DELETE_DRAFT_PROJECT',
+                entityType: 'Project',
+                entityId: $project->id,
+                before: ['title' => $title, 'status' => 'draft'],
+                reason: "Menghapus draft project: {$title}"
+            );
+        });
+
+        return redirect()->route('participant.dashboard')
+            ->with('success', "Draft project \"{$title}\" berhasil dihapus.");
     }
 }

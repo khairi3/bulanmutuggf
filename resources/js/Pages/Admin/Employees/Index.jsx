@@ -235,9 +235,16 @@ export default function EmployeesIndex({ employees, units, filters }) {
             header: 'Index / NIK',
             accessor: 'employee_index',
             render: (row) => (
-                <span className="font-mono text-xs font-bold text-slate-900 bg-slate-100 px-2 py-1 rounded border border-slate-200">
-                    {row.employee_index}
-                </span>
+                <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-xs font-bold text-slate-900 bg-slate-100 px-2 py-1 rounded border border-slate-200">
+                        {row.employee_index}
+                    </span>
+                    {row.is_manual ? (
+                        <span className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded">
+                            Manual
+                        </span>
+                    ) : null}
+                </div>
             ),
         },
         {

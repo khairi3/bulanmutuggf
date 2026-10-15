@@ -270,6 +270,10 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
         team_max: currentStream?.team_max || 7,
         max_projects_per_employee: currentStream?.max_projects_per_employee || 2,
         code_pattern: currentStream?.code_pattern || '{LEVEL}{IMPROVEMENT}{AREA}-{NNN}',
+        enable_team: currentStream?.enable_team ?? true,
+        enable_categories: currentStream?.enable_categories ?? true,
+        enable_charter: currentStream?.enable_charter ?? true,
+        enable_attachments: currentStream?.enable_attachments ?? true,
     });
 
     // Form Phases (CFG-03)
@@ -319,6 +323,10 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
                 team_max: currentStream.team_max,
                 max_projects_per_employee: currentStream.max_projects_per_employee,
                 code_pattern: currentStream.code_pattern,
+                enable_team: currentStream.enable_team ?? true,
+                enable_categories: currentStream.enable_categories ?? true,
+                enable_charter: currentStream.enable_charter ?? true,
+                enable_attachments: currentStream.enable_attachments ?? true,
             });
         }
     }, [activeStreamId, scoringStage]);
@@ -596,10 +604,10 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
                 {/* SUBTAB 1: ATURAN TIM & POLA KODE (CFG-06) */}
                 {subTab === 'rules' && (
                     <Card
-                        title={`Aturan Tim: ${currentStream?.name}`}
-                        subtitle="Batasan jumlah peserta tim dan format prefix kode registrasi otomatis"
+                        title={`Aturan Tim & Konfigurasi Langkah Pendaftaran: ${currentStream?.name}`}
+                        subtitle="Batasan jumlah peserta, pola kode, serta langkah form registrasi yang aktif untuk stream ini"
                     >
-                        <form onSubmit={handleSaveStreamRules} className="max-w-xl space-y-4">
+                        <form onSubmit={handleSaveStreamRules} className="max-w-xl space-y-5">
                             <div className="grid grid-cols-2 gap-4">
                                 <Input
                                     id="team_min"
@@ -642,9 +650,133 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
                                 required
                             />
 
+                            {/* Konfigurasi Langkah Pendaftaran (Wizard Steps) */}
+                            <div className="pt-4 border-t border-slate-200">
+                                <div className="mb-3">
+                                    <h4 className="text-sm font-bold text-slate-800">
+                                        Konfigurasi Langkah Pendaftaran (Wizard Steps)
+                                    </h4>
+                                    <p className="text-xs text-slate-500">
+                                        Pilih langkah formulir yang aktif khusus untuk stream <strong>{currentStream?.name}</strong>. Peserta hanya akan melewati langkah yang dicentang.
+                                    </p>
+                                </div>
+
+                                <div className="space-y-2.5">
+                                    {/* Step 1: Pilih Stream (Selalu Aktif) */}
+                                    <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between opacity-75">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-slate-700">Langkah 1: Pilih Stream Lomba</span>
+                                                <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">Wajib / Permanen</span>
+                                            </div>
+                                            <p className="text-[11px] text-slate-500 mt-0.5">Langkah awal untuk menentukan stream kompetisi yang diikuti.</p>
+                                        </div>
+                                        <span className="text-xs font-semibold text-emerald-600">Selalu Aktif</span>
+                                    </div>
+
+                                    {/* Step 2: Susunan Tim */}
+                                    <label className="p-3 rounded-xl border border-slate-200 hover:border-slate-300 bg-white flex items-center justify-between cursor-pointer transition-colors">
+                                        <div className="pr-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-slate-800">Langkah 2: Data & Anggota Tim</span>
+                                                {streamRulesForm.data.enable_team ? (
+                                                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">Aktif</span>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">Nonaktif</span>
+                                                )}
+                                            </div>
+                                            <p className="text-[11px] text-slate-500 mt-0.5">Pencarian NIK/Nama anggota tim tambahan (EMP-03 Autocomplete).</p>
+                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            checked={streamRulesForm.data.enable_team}
+                                            onChange={(e) => streamRulesForm.setData('enable_team', e.target.checked)}
+                                            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                                        />
+                                    </label>
+
+                                    {/* Step 3: Kategori */}
+                                    <label className="p-3 rounded-xl border border-slate-200 hover:border-slate-300 bg-white flex items-center justify-between cursor-pointer transition-colors">
+                                        <div className="pr-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-slate-800">Langkah 3: Kategori Lomba & Format Kode</span>
+                                                {streamRulesForm.data.enable_categories ? (
+                                                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">Aktif</span>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">Nonaktif</span>
+                                                )}
+                                            </div>
+                                            <p className="text-[11px] text-slate-500 mt-0.5">Pemilihan dimensi kategori stream dan pratinjau kode registrasi.</p>
+                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            checked={streamRulesForm.data.enable_categories}
+                                            onChange={(e) => streamRulesForm.setData('enable_categories', e.target.checked)}
+                                            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                                        />
+                                    </label>
+
+                                    {/* Step 4: Project Charter */}
+                                    <label className="p-3 rounded-xl border border-slate-200 hover:border-slate-300 bg-white flex items-center justify-between cursor-pointer transition-colors">
+                                        <div className="pr-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-slate-800">Langkah 4: Pengisian Project Charter</span>
+                                                {streamRulesForm.data.enable_charter ? (
+                                                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">Aktif</span>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Dilewati / Nonaktif</span>
+                                                )}
+                                            </div>
+                                            <p className="text-[11px] text-slate-500 mt-0.5">
+                                                Executive Summary, Problem Statement, Goal, Milestone, & Inisiatif. <em>(Nonaktifkan jika stream tidak memerlukan tabel charter rinci)</em>.
+                                            </p>
+                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            checked={streamRulesForm.data.enable_charter}
+                                            onChange={(e) => streamRulesForm.setData('enable_charter', e.target.checked)}
+                                            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                                        />
+                                    </label>
+
+                                    {/* Step 5: Unggah Berkas & Video */}
+                                    <label className="p-3 rounded-xl border border-slate-200 hover:border-slate-300 bg-white flex items-center justify-between cursor-pointer transition-colors">
+                                        <div className="pr-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-slate-800">Langkah 5: Unggah Berkas & Tautan Video</span>
+                                                {streamRulesForm.data.enable_attachments ? (
+                                                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">Aktif</span>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">Nonaktif</span>
+                                                )}
+                                            </div>
+                                            <p className="text-[11px] text-slate-500 mt-0.5">Upload presentasi PPT, berkas pendukung PDF/XLS/gambar, dan URL video.</p>
+                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            checked={streamRulesForm.data.enable_attachments}
+                                            onChange={(e) => streamRulesForm.setData('enable_attachments', e.target.checked)}
+                                            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                                        />
+                                    </label>
+
+                                    {/* Step 6: Review & Submit (Selalu Aktif) */}
+                                    <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between opacity-75">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-slate-700">Langkah 6: Review & Submit Pendaftaran</span>
+                                                <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">Wajib / Permanen</span>
+                                            </div>
+                                            <p className="text-[11px] text-slate-500 mt-0.5">Ringkasan isian pendaftaran dan pernyataan orisinalitas.</p>
+                                        </div>
+                                        <span className="text-xs font-semibold text-emerald-600">Selalu Aktif</span>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="pt-2">
                                 <Button type="submit" variant="primary" loading={streamRulesForm.processing}>
-                                    Simpan Aturan Tim
+                                    Simpan Pengaturan Stream
                                 </Button>
                             </div>
                         </form>

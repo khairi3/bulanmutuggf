@@ -48,4 +48,41 @@ class EmployeeAutocompleteTest extends TestCase
         $data = $response->json();
         $this->assertEmpty($data);
     }
+
+    public function test_authenticated_user_can_quick_create_manual_employee_with_auto_generated_nik(): void
+    {
+        $user = \App\Models\User::first();
+
+        $response = $this->actingAs($user)->postJson('/api/employees/quick-create', [
+            'full_name' => 'Wahyudi Vendor',
+            'unit' => 'Vendor Mitra PT ABC',
+            'position' => 'Technical Support',
+        ]);
+
+        $response->assertStatus(201);
+        $data = $response->json();
+        $this->assertTrue($data['success']);
+        $this->assertStringStartsWith('EXT-', $data['employee']['employee_index']);
+        $this->assertEquals('Wahyudi Vendor', $data['employee']['full_name']);
+        $this->assertEquals('Vendor Mitra PT ABC', $data['employee']['unit']);
+        $this->assertTrue($data['employee']['is_manual']);
+
+        $this->assertDatabaseHas('employees', [
+            'full_name' => 'Wahyudi Vendor',
+            'is_manual' => true,
+        ]);
+    }
+
+    public function test_quick_create_manual_employee_validation_fails_when_name_or_unit_is_empty(): void
+    {
+        $user = \App\Models\User::first();
+
+        $response = $this->actingAs($user)->postJson('/api/employees/quick-create', [
+            'full_name' => '',
+            'unit' => '',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['full_name', 'unit']);
+    }
 }
