@@ -289,12 +289,51 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
 
     // Form Scoring Parameters (CFG-05)
     const currentParams = currentStream?.scoring_parameters?.filter((p) => p.stage === scoringStage) || [];
+    const mapParamObj = (p) => ({
+        id: p.id,
+        name: p.name,
+        rubric: p.rubric || '',
+        weight: parseFloat(p.weight),
+        min_score: p.min_score !== undefined && p.min_score !== null ? parseFloat(p.min_score) : 1,
+        max_score: p.max_score !== undefined && p.max_score !== null ? parseFloat(p.max_score) : (currentStream?.code === 'ENERGY' ? 15 : 5),
+        not_pass_min: p.not_pass_min !== undefined && p.not_pass_min !== null ? parseFloat(p.not_pass_min) : 1,
+        not_pass_max: p.not_pass_max !== undefined && p.not_pass_max !== null ? parseFloat(p.not_pass_max) : (currentStream?.code === 'ENERGY' ? 5 : 1),
+        follow_up_min: p.follow_up_min !== undefined && p.follow_up_min !== null ? parseFloat(p.follow_up_min) : (currentStream?.code === 'ENERGY' ? 6 : 2),
+        follow_up_max: p.follow_up_max !== undefined && p.follow_up_max !== null ? parseFloat(p.follow_up_max) : (currentStream?.code === 'ENERGY' ? 10 : 3),
+        pass_min: p.pass_min !== undefined && p.pass_min !== null ? parseFloat(p.pass_min) : (currentStream?.code === 'ENERGY' ? 11 : 4),
+        pass_max: p.pass_max !== undefined && p.pass_max !== null ? parseFloat(p.pass_max) : (currentStream?.code === 'ENERGY' ? 15 : 5),
+    });
+
     const [parametersState, setParametersState] = useState(
         currentParams.length > 0
-            ? currentParams.map((p) => ({ name: p.name, rubric: p.rubric || '', weight: parseFloat(p.weight) }))
+            ? currentParams.map(mapParamObj)
             : [
-                  { name: 'Kualitas Analisis Masalah', rubric: 'Rubrik penilaian', weight: 50 },
-                  { name: 'Efektivitas Solusi & Hasil', rubric: 'Rubrik penilaian', weight: 50 },
+                  { 
+                      name: 'Kualitas Analisis Masalah', 
+                      rubric: 'Rubrik penilaian', 
+                      weight: 50,
+                      min_score: 1,
+                      max_score: currentStream?.code === 'ENERGY' ? 15 : 5,
+                      not_pass_min: 1,
+                      not_pass_max: currentStream?.code === 'ENERGY' ? 5 : 1,
+                      follow_up_min: currentStream?.code === 'ENERGY' ? 6 : 2,
+                      follow_up_max: currentStream?.code === 'ENERGY' ? 10 : 3,
+                      pass_min: currentStream?.code === 'ENERGY' ? 11 : 4,
+                      pass_max: currentStream?.code === 'ENERGY' ? 15 : 5,
+                  },
+                  { 
+                      name: 'Efektivitas Solusi & Hasil', 
+                      rubric: 'Rubrik penilaian', 
+                      weight: 50,
+                      min_score: 1,
+                      max_score: currentStream?.code === 'ENERGY' ? 15 : 5,
+                      not_pass_min: 1,
+                      not_pass_max: currentStream?.code === 'ENERGY' ? 5 : 1,
+                      follow_up_min: currentStream?.code === 'ENERGY' ? 6 : 2,
+                      follow_up_max: currentStream?.code === 'ENERGY' ? 10 : 3,
+                      pass_min: currentStream?.code === 'ENERGY' ? 11 : 4,
+                      pass_max: currentStream?.code === 'ENERGY' ? 15 : 5,
+                  },
               ]
     );
 
@@ -303,9 +342,7 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
         if (currentStream) {
             const stageParams = currentStream.scoring_parameters?.filter((p) => p.stage === scoringStage) || [];
             if (stageParams.length > 0) {
-                setParametersState(
-                    stageParams.map((p) => ({ name: p.name, rubric: p.rubric || '', weight: parseFloat(p.weight) }))
-                );
+                setParametersState(stageParams.map(mapParamObj));
             }
             if (currentStream.phases) {
                 setPhasesState(
@@ -1030,6 +1067,173 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
                                             }}
                                             className="w-full text-xs p-2 rounded-lg border border-slate-300 bg-white"
                                         />
+
+                                        {/* Score Ranges Configuration */}
+                                        <div className="pt-2 border-t border-slate-200/80 mt-2">
+                                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                                <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                                                    <span>Rentang Nilai & Kategori Status:</span>
+                                                    <span className="text-slate-400 font-normal">
+                                                        (Skor {param.min_score || 1} - {param.max_score || 5})
+                                                    </span>
+                                                </span>
+                                                <div className="flex items-center gap-1.5">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const updated = [...parametersState];
+                                                            updated[idx] = {
+                                                                ...updated[idx],
+                                                                min_score: 1,
+                                                                max_score: 5,
+                                                                not_pass_min: 1,
+                                                                not_pass_max: 1,
+                                                                follow_up_min: 2,
+                                                                follow_up_max: 3,
+                                                                pass_min: 4,
+                                                                pass_max: 5,
+                                                            };
+                                                            setParametersState(updated);
+                                                        }}
+                                                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-200 hover:bg-slate-300 text-slate-700 transition"
+                                                    >
+                                                        Preset Standar (1-5)
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const updated = [...parametersState];
+                                                            updated[idx] = {
+                                                                ...updated[idx],
+                                                                min_score: 1,
+                                                                max_score: 15,
+                                                                not_pass_min: 1,
+                                                                not_pass_max: 5,
+                                                                follow_up_min: 6,
+                                                                follow_up_max: 10,
+                                                                pass_min: 11,
+                                                                pass_max: 15,
+                                                            };
+                                                            setParametersState(updated);
+                                                        }}
+                                                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 hover:bg-emerald-200 text-emerald-800 transition"
+                                                    >
+                                                        Preset EMI (1-15)
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
+                                                {/* Not Pass */}
+                                                <div className="p-2 rounded-lg bg-rose-50 border border-rose-200">
+                                                    <span className="block text-[10px] font-bold text-rose-800 mb-1">
+                                                        🔴 Not Pass
+                                                    </span>
+                                                    <div className="flex items-center gap-1">
+                                                        <input
+                                                            type="number"
+                                                            value={param.not_pass_min ?? 1}
+                                                            onChange={(e) => {
+                                                                const updated = [...parametersState];
+                                                                updated[idx].not_pass_min = parseFloat(e.target.value) || 0;
+                                                                updated[idx].min_score = updated[idx].not_pass_min;
+                                                                setParametersState(updated);
+                                                            }}
+                                                            className="w-full text-center p-1 rounded border border-rose-300 bg-white font-bold text-xs"
+                                                        />
+                                                        <span className="text-slate-400">-</span>
+                                                        <input
+                                                            type="number"
+                                                            value={param.not_pass_max ?? 5}
+                                                            onChange={(e) => {
+                                                                const updated = [...parametersState];
+                                                                updated[idx].not_pass_max = parseFloat(e.target.value) || 0;
+                                                                setParametersState(updated);
+                                                            }}
+                                                            className="w-full text-center p-1 rounded border border-rose-300 bg-white font-bold text-xs"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Need Follow Up */}
+                                                <div className="p-2 rounded-lg bg-amber-50 border border-amber-200">
+                                                    <span className="block text-[10px] font-bold text-amber-800 mb-1">
+                                                        🟡 Need Follow Up
+                                                    </span>
+                                                    <div className="flex items-center gap-1">
+                                                        <input
+                                                            type="number"
+                                                            value={param.follow_up_min ?? 6}
+                                                            onChange={(e) => {
+                                                                const updated = [...parametersState];
+                                                                updated[idx].follow_up_min = parseFloat(e.target.value) || 0;
+                                                                setParametersState(updated);
+                                                            }}
+                                                            className="w-full text-center p-1 rounded border border-amber-300 bg-white font-bold text-xs"
+                                                        />
+                                                        <span className="text-slate-400">-</span>
+                                                        <input
+                                                            type="number"
+                                                            value={param.follow_up_max ?? 10}
+                                                            onChange={(e) => {
+                                                                const updated = [...parametersState];
+                                                                updated[idx].follow_up_max = parseFloat(e.target.value) || 0;
+                                                                setParametersState(updated);
+                                                            }}
+                                                            className="w-full text-center p-1 rounded border border-amber-300 bg-white font-bold text-xs"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Pass */}
+                                                <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                                                    <span className="block text-[10px] font-bold text-emerald-800 mb-1">
+                                                        🟢 Pass
+                                                    </span>
+                                                    <div className="flex items-center gap-1">
+                                                        <input
+                                                            type="number"
+                                                            value={param.pass_min ?? 11}
+                                                            onChange={(e) => {
+                                                                const updated = [...parametersState];
+                                                                updated[idx].pass_min = parseFloat(e.target.value) || 0;
+                                                                setParametersState(updated);
+                                                            }}
+                                                            className="w-full text-center p-1 rounded border border-emerald-300 bg-white font-bold text-xs"
+                                                        />
+                                                        <span className="text-slate-400">-</span>
+                                                        <input
+                                                            type="number"
+                                                            value={param.pass_max ?? 15}
+                                                            onChange={(e) => {
+                                                                const updated = [...parametersState];
+                                                                updated[idx].pass_max = parseFloat(e.target.value) || 0;
+                                                                updated[idx].max_score = updated[idx].pass_max;
+                                                                setParametersState(updated);
+                                                            }}
+                                                            className="w-full text-center p-1 rounded border border-emerald-300 bg-white font-bold text-xs"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Max Score */}
+                                                <div className="p-2 rounded-lg bg-slate-100 border border-slate-200">
+                                                    <span className="block text-[10px] font-bold text-slate-700 mb-1">
+                                                        Skor Maksimal
+                                                    </span>
+                                                    <input
+                                                        type="number"
+                                                        value={param.max_score ?? 15}
+                                                        onChange={(e) => {
+                                                            const updated = [...parametersState];
+                                                            updated[idx].max_score = parseFloat(e.target.value) || 0;
+                                                            setParametersState(updated);
+                                                        }}
+                                                        className="w-full text-center p-1 rounded border border-slate-300 bg-white font-extrabold text-xs"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -1041,7 +1245,19 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
                                     onClick={() =>
                                         setParametersState([
                                             ...parametersState,
-                                            { name: '', rubric: '', weight: 0 },
+                                            { 
+                                                name: '', 
+                                                rubric: '', 
+                                                weight: 0,
+                                                min_score: 1,
+                                                max_score: currentStream?.code === 'ENERGY' ? 15 : 5,
+                                                not_pass_min: 1,
+                                                not_pass_max: currentStream?.code === 'ENERGY' ? 5 : 1,
+                                                follow_up_min: currentStream?.code === 'ENERGY' ? 6 : 2,
+                                                follow_up_max: currentStream?.code === 'ENERGY' ? 10 : 3,
+                                                pass_min: currentStream?.code === 'ENERGY' ? 11 : 4,
+                                                pass_max: currentStream?.code === 'ENERGY' ? 15 : 5,
+                                            },
                                         ])
                                     }
                                 >

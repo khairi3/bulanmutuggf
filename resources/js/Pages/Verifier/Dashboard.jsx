@@ -23,8 +23,10 @@ import {
     List,
     Sparkles,
     ChevronRight,
-    TrendingUp
+    TrendingUp,
+    Trash2
 } from 'lucide-react';
+import DeleteProjectModal from '@/Components/DeleteProjectModal';
 
 export default function VerifierDashboard({ stats = { total: 0, unverified: 0, verified: 0 }, projects, streams = [], filters = {} }) {
     const { auth } = usePage().props;
@@ -34,6 +36,18 @@ export default function VerifierDashboard({ stats = { total: 0, unverified: 0, v
     const [selectedStream, setSelectedStream] = useState(filters?.stream_id || '');
     const [selectedStatus, setSelectedStatus] = useState(filters?.status || '');
     const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
+    const [projectToDelete, setProjectToDelete] = useState(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+    const handleOpenDeleteModal = (project) => {
+        setProjectToDelete(project);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleCloseDeleteModal = () => {
+        setIsDeleteModalOpen(false);
+        setProjectToDelete(null);
+    };
 
     const handleFilterChange = (key, value) => {
         const query = {
@@ -65,8 +79,10 @@ export default function VerifierDashboard({ stats = { total: 0, unverified: 0, v
         if (p.my_score_status === 'submitted') {
             const scoreVal = parseFloat(p.my_score || 0);
             const isScale5 = scoreVal <= 5.0;
-            const isPass = isScale5 ? scoreVal >= 4.0 : scoreVal >= 85;
-            const isFollowUp = isScale5 ? (scoreVal >= 2.0 && scoreVal < 4.0) : (scoreVal >= 50 && scoreVal < 85);
+            const isScale15 = scoreVal > 5.0 && scoreVal <= 15.0;
+            const isPass = isScale15 ? scoreVal >= 11.0 : (isScale5 ? scoreVal >= 4.0 : scoreVal >= 85);
+            const isFollowUp = isScale15 ? (scoreVal >= 6.0 && scoreVal < 11.0) : (isScale5 ? (scoreVal >= 2.0 && scoreVal < 4.0) : (scoreVal >= 50 && scoreVal < 85));
+            const scaleSuffix = isScale15 ? '/ 15.0' : (isScale5 ? '/ 5.0' : '');
 
             if (isPass) {
                 return (
@@ -76,7 +92,7 @@ export default function VerifierDashboard({ stats = { total: 0, unverified: 0, v
                             <span>Pass</span>
                         </span>
                         <span className="text-[10px] text-slate-500 font-mono pl-1">
-                            Skor: {scoreVal.toFixed(2)} {isScale5 ? '/ 5.0' : ''}
+                            Skor: {scoreVal.toFixed(2)} {scaleSuffix}
                         </span>
                     </div>
                 );
@@ -88,7 +104,7 @@ export default function VerifierDashboard({ stats = { total: 0, unverified: 0, v
                             <span>Need Follow Up</span>
                         </span>
                         <span className="text-[10px] text-slate-500 font-mono pl-1">
-                            Skor: {scoreVal.toFixed(2)} {isScale5 ? '/ 5.0' : ''}
+                            Skor: {scoreVal.toFixed(2)} {scaleSuffix}
                         </span>
                     </div>
                 );
@@ -100,7 +116,7 @@ export default function VerifierDashboard({ stats = { total: 0, unverified: 0, v
                             <span>Not Pass</span>
                         </span>
                         <span className="text-[10px] text-slate-500 font-mono pl-1">
-                            Skor: {scoreVal.toFixed(2)} {isScale5 ? '/ 5.0' : ''}
+                            Skor: {scoreVal.toFixed(2)} {scaleSuffix}
                         </span>
                     </div>
                 );
@@ -372,13 +388,24 @@ export default function VerifierDashboard({ stats = { total: 0, unverified: 0, v
                                         {renderVerificationBadge(p)}
                                     </div>
 
-                                    <Link
-                                        href={`/verifier/projects/${p.id}`}
-                                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-emerald-700 transition shadow-xs"
-                                    >
-                                        <span>{p.my_score_status === 'submitted' ? 'Review Penilaian' : 'Mulai Verifikasi'}</span>
-                                        <ChevronRight className="w-3.5 h-3.5" />
-                                    </Link>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleOpenDeleteModal(p)}
+                                            className="p-2 rounded-xl text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition shadow-2xs"
+                                            title="Hapus Project & Kirim Alasan"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+
+                                        <Link
+                                            href={`/verifier/projects/${p.id}`}
+                                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-emerald-700 transition shadow-xs"
+                                        >
+                                            <span>{p.my_score_status === 'submitted' ? 'Review Penilaian' : 'Mulai Verifikasi'}</span>
+                                            <ChevronRight className="w-3.5 h-3.5" />
+                                        </Link>
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -458,13 +485,23 @@ export default function VerifierDashboard({ stats = { total: 0, unverified: 0, v
                                                 {renderVerificationBadge(p)}
                                             </td>
                                             <td className="py-3 px-4 text-right">
-                                                <Link
-                                                    href={`/verifier/projects/${p.id}`}
-                                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white hover:bg-emerald-700 transition-colors shadow-xs"
-                                                >
-                                                    <span>{p.my_score_status === 'submitted' ? 'Review' : 'Verifikasi'}</span>
-                                                    <ExternalLink className="w-3 h-3" />
-                                                </Link>
+                                                <div className="inline-flex items-center gap-1.5 justify-end">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenDeleteModal(p)}
+                                                        className="p-1.5 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition"
+                                                        title="Hapus Project & Kirim Alasan"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <Link
+                                                        href={`/verifier/projects/${p.id}`}
+                                                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white hover:bg-emerald-700 transition-colors shadow-xs"
+                                                    >
+                                                        <span>{p.my_score_status === 'submitted' ? 'Review' : 'Verifikasi'}</span>
+                                                        <ExternalLink className="w-3 h-3" />
+                                                    </Link>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -500,6 +537,12 @@ export default function VerifierDashboard({ stats = { total: 0, unverified: 0, v
                         </div>
                     </div>
                 )}
+                {/* Delete Project Modal */}
+                <DeleteProjectModal
+                    isOpen={isDeleteModalOpen}
+                    onClose={handleCloseDeleteModal}
+                    project={projectToDelete}
+                />
             </div>
         </AppLayout>
     );

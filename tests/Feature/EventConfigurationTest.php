@@ -268,7 +268,7 @@ class EventConfigurationTest extends TestCase
         $this->assertDatabaseMissing('projects', ['id' => $project->id]);
     }
 
-    public function test_cannot_delete_submitted_project(): void
+    public function test_can_delete_submitted_project(): void
     {
         $employee = Employee::where('employee_index', 'EMP1007')->first();
         $stream = Stream::first();
@@ -280,9 +280,11 @@ class EventConfigurationTest extends TestCase
             'status' => \App\Models\Project::STATUS_SUBMITTED,
         ]);
 
-        $response = $this->actingAs($employee->user)->delete("/participant/projects/{$project->id}");
+        $response = $this->actingAs($employee->user)->delete("/participant/projects/{$project->id}", [
+            'reason' => 'Double submit',
+        ]);
 
-        $response->assertSessionHas('error');
-        $this->assertDatabaseHas('projects', ['id' => $project->id]);
+        $response->assertSessionHas('success');
+        $this->assertSoftDeleted('projects', ['id' => $project->id]);
     }
 }

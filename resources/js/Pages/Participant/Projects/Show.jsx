@@ -8,6 +8,7 @@ import Modal from '@/Components/Modal';
 import Input from '@/Components/Input';
 import Stepper from '@/Components/Stepper';
 import FeedbackThread from '@/Components/FeedbackThread';
+import DeleteProjectModal from '@/Components/DeleteProjectModal';
 import {
     FileText,
     Users,
@@ -39,6 +40,7 @@ export default function ProjectShow({ project }) {
     const [activeTab, setActiveTab] = useState('charter'); // 'charter', 'team', 'files', 'versions', 'feedback', 'convention'
     const [isEditCharterModalOpen, setIsEditCharterModalOpen] = useState(false);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     // Finalise Project State (PAR-11)
     const [isFinaliseModalOpen, setIsFinaliseModalOpen] = useState(false);
@@ -47,6 +49,7 @@ export default function ProjectShow({ project }) {
     const [isFinalising, setIsFinalising] = useState(false);
 
     const currentVersion = project.current_version || project.versions?.[0];
+    const isLeader = auth?.user?.employee?.id === project.leader_employee_id || auth?.user?.employee_id === project.leader_employee_id;
     const presentationFile = project.files?.find(f => f.file_category === 'final_presentation')
         || project.files?.find(f => {
             const ext = f.original_name?.toLowerCase().split('.').pop();
@@ -210,6 +213,17 @@ export default function ProjectShow({ project }) {
                                     </Button>
                                 ) : (
                                     <>
+                                        {isLeader && (project.status === 'submitted' || project.status === 'in_verification') && (
+                                            <Button
+                                                variant="secondary"
+                                                onClick={() => setIsDeleteModalOpen(true)}
+                                                className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
+                                                title="Hapus Project jika terjadi double submit"
+                                            >
+                                                <Trash2 className="w-4 h-4 mr-2 text-rose-500" />
+                                                <span>Hapus Project</span>
+                                            </Button>
+                                        )}
                                         <Button variant="secondary" onClick={() => setIsUploadModalOpen(true)}>
                                             <UploadCloud className="w-4 h-4 mr-2" />
                                             <span>Unggah Berkas</span>
@@ -1142,6 +1156,31 @@ export default function ProjectShow({ project }) {
                     </div>
                 </form>
             </Modal>
+
+            {/* Modal Konfirmasi Hapus Project Submitted (Double Submit) */}
+            <DeleteProjectModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                project={{
+                    ...project,
+                    leader_name: project.leader?.full_name || auth?.user?.employee?.full_name,
+                    stream_name: project.stream?.name,
+                    unit: project.leader?.unit || auth?.user?.employee?.unit,
+                }}
+                deleteUrl={`/participant/projects/${project.id}`}
+                title="Hapus Project Terdaftar (Double Submit)?"
+                description="Batalkan pendaftaran project ini jika terjadi double submit atau kesalahan pengajuan."
+                noticeText="Project ini akan dibatalkan dan dihapus dari sistem verifikasi. Anggota tim dapat didaftarkan kembali pada project inovasi lainnya."
+                presets={[
+                    'Double submit / pendaftaran ganda',
+                    'Salah pilih stream atau kategori inovasi',
+                    'Perubahan anggota tim / ingin daftar ulang',
+                    'Dibatalkan oleh kesepakatan tim',
+                ]}
+                requiredReason={false}
+                defaultReason="Double submit / pendaftaran ganda"
+                confirmButtonText="Hapus & Batalkan Project"
+            />
         </AppLayout>
     );
 }

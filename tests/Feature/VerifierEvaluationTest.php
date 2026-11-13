@@ -290,4 +290,199 @@ class VerifierEvaluationTest extends TestCase
         $response = $this->actingAs($participant)->get("/verifier/projects/{$this->cicProject->id}");
         $response->assertStatus(403);
     }
+
+    public function test_verifier_can_delete_submitted_project_with_reason(): void
+    {
+        $reason = 'Project ini teridentifikasi sebagai duplikasi pendaftaran sebelumnya.';
+
+        $response = $this->actingAs($this->verifierUser)->delete("/verifier/projects/{$this->cicProject->id}", [
+            'reason' => $reason,
+        ]);
+
+        $response->assertRedirect('/verifier/dashboard');
+        $response->assertSessionHas('success');
+
+        // Check project is soft deleted and reason is recorded
+        $this->assertSoftDeleted('projects', [
+            'id' => $this->cicProject->id,
+            'deletion_reason' => $reason,
+            'deleted_by' => $this->verifierUser->id,
+        ]);
+
+        // Check AuditLog
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'DELETE_PROJECT_BY_VERIFIER',
+            'entity_id' => $this->cicProject->id,
+        ]);
+
+        // Check Notification created for team/leader
+        $this->assertDatabaseHas('notifications', [
+            'type' => 'project_deleted',
+        ]);
+    }
+
+    public function test_delete_project_requires_valid_reason(): void
+    {
+        // Empty reason
+        $response = $this->actingAs($this->verifierUser)->delete("/verifier/projects/{$this->cicProject->id}", [
+            'reason' => '',
+        ]);
+        $response->assertSessionHasErrors('reason');
+
+        // Too short reason (< 5 chars)
+        $response2 = $this->actingAs($this->verifierUser)->delete("/verifier/projects/{$this->cicProject->id}", [
+            'reason' => 'abc',
+        ]);
+        $response2->assertSessionHasErrors('reason');
+
+        // Ensure project was not deleted
+        $this->assertDatabaseHas('projects', [
+            'id' => $this->cicProject->id,
+            'deleted_at' => null,
+        ]);
+    }
+
+    public function test_verifier_cannot_delete_unassigned_project(): void
+    {
+        $response = $this->actingAs($this->verifierUser)->delete("/verifier/projects/{$this->k3Project->id}", [
+            'reason' => 'Alasan yang cukup panjang untuk dihapus',
+        ]);
+
+        $response->assertStatus(403);
+        $this->assertDatabaseHas('projects', [
+            'id' => $this->k3Project->id,
+            'deleted_at' => null,
+        ]);
+    }
+
+    public function test_verifier_cannot_delete_locked_or_convention_project(): void
+    {
+        $this->cicProject->update(['status' => Project::STATUS_FINALISED, 'is_locked' => true]);
+
+        $response = $this->actingAs($this->verifierUser)->delete("/verifier/projects/{$this->cicProject->id}", [
+            'reason' => 'Alasan yang cukup panjang untuk dihapus',
+        ]);
+
+        $response->assertSessionHas('error');
+        $this->assertDatabaseHas('projects', [
+            'id' => $this->cicProject->id,
+            'deleted_at' => null,
+        ]);
+    }
+
+    public function test_emi_parameters_have_configured_score_ranges_and_verifier_can_score_within_range(): void
+    {
+        $energyStream = Stream::where('code', Stream::CODE_ENERGY)->first();
+        $this->assertNotNull($energyStream);
+
+        // Assign verifier to energy stream
+        Assignment::create([
+            'user_id' => $this->verifierUser->id,
+            'stream_id' => $energyStream->id,
+            'stage' => 'verification',
+        ]);
+
+        $leader = Employee::where('employee_index', 'EMP1007')->first()->user;
+        $energyProject = Project::create([
+            'stream_id' => $energyStream->id,
+            'title' => 'Project Energy Boiler Efficiency',
+            'registration_code' => 'ENRG-010',
+            'status' => Project::STATUS_SUBMITTED,
+            'leader_employee_id' => $leader->employee->id,
+            'submitted_at' => now(),
+        ]);
+
+        // Verify parameters have ranges 1-15
+        $params = ScoringParameter::where('stream_id', $energyStream->id)
+            ->where('stage', 'verification')
+            ->get();
+        $this->assertGreaterThan(0, $params->count());
+
+        foreach ($params as $param) {
+            $this->assertEquals(15, (int) $param->max_score);
+            $this->assertEquals(1, (int) $param->not_pass_min);
+            $this->assertEquals(5, (int) $param->not_pass_max);
+            $this->assertEquals(6, (int) $param->follow_up_min);
+            $this->assertEquals(10, (int) $param->follow_up_max);
+            $this->assertEquals(11, (int) $param->pass_min);
+            $this->assertEquals(15, (int) $param->pass_max);
+        }
+
+        // Verifier submits scores with 1-15 range values (e.g. 13, 8, 4)
+        $scoresPayload = [];
+        foreach ($params as $idx => $param) {
+            $scoreVal = ($idx % 3 === 0) ? 14 : (($idx % 3 === 1) ? 8 : 4);
+            $scoresPayload[$param->id] = [
+                'score' => $scoreVal,
+                'note' => "Observasi kriteria {$param->name}",
+            ];
+        }
+
+        $response = $this->actingAs($this->verifierUser)->post("/verifier/projects/{$energyProject->id}/score", [
+            'scores' => $scoresPayload,
+            'submit' => true,
+        ]);
+
+        $response->assertSessionHas('success');
+        $this->assertDatabaseHas('score_sheets', [
+            'project_id' => $energyProject->id,
+            'scorer_user_id' => $this->verifierUser->id,
+            'stage' => 'verification',
+            'status' => 'submitted',
+        ]);
+
+        $sheet = ScoreSheet::where('project_id', $energyProject->id)
+            ->where('scorer_user_id', $this->verifierUser->id)
+            ->first();
+        $this->assertGreaterThan(5.0, (float) $sheet->total_weighted);
+    }
+
+    public function test_admin_can_update_parameter_score_ranges(): void
+    {
+        $adminUser = User::whereHas('roles', fn ($q) => $q->where('code', \App\Models\Role::ADMIN))->first();
+        $this->assertNotNull($adminUser);
+        $adminUser->update(['must_change_password' => false]);
+        $energyStream = Stream::where('code', Stream::CODE_ENERGY)->first();
+
+        $param = ScoringParameter::where('stream_id', $energyStream->id)
+            ->where('stage', 'verification')
+            ->first();
+
+        $response = $this->actingAs($adminUser)->post("/admin/streams/{$energyStream->id}/scoring-parameters", [
+            'stage' => 'verification',
+            'parameters' => [
+                [
+                    'id' => $param->id,
+                    'name' => $param->name,
+                    'group_name' => $param->group_name,
+                    'weight' => 100.00,
+                    'order' => $param->order,
+                    'rubric' => $param->rubric,
+                    'min_score' => 1,
+                    'max_score' => 20,
+                    'not_pass_min' => 1,
+                    'not_pass_max' => 7,
+                    'follow_up_min' => 8,
+                    'follow_up_max' => 14,
+                    'pass_min' => 15,
+                    'pass_max' => 20,
+                ],
+            ],
+        ]);
+
+        $response->assertSessionHas('success');
+        $this->assertDatabaseHas('scoring_parameters', [
+            'stream_id' => $energyStream->id,
+            'stage' => 'verification',
+            'name' => $param->name,
+            'max_score' => 20,
+            'not_pass_min' => 1,
+            'not_pass_max' => 7,
+            'follow_up_min' => 8,
+            'follow_up_max' => 14,
+            'pass_min' => 15,
+            'pass_max' => 20,
+        ]);
+    }
 }
+

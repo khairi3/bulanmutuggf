@@ -21,7 +21,15 @@ class ScoringParameterController extends Controller
             'parameters' => ['required', 'array', 'min:1'],
             'parameters.*.name' => ['required', 'string', 'max:150'],
             'parameters.*.rubric' => ['nullable', 'string'],
-            'parameters.*.weight' => ['required', 'numeric', 'min:1', 'max:100'],
+            'parameters.*.weight' => ['required', 'numeric', 'min:0.01', 'max:100'],
+            'parameters.*.min_score' => ['nullable', 'numeric'],
+            'parameters.*.max_score' => ['nullable', 'numeric'],
+            'parameters.*.not_pass_min' => ['nullable', 'numeric'],
+            'parameters.*.not_pass_max' => ['nullable', 'numeric'],
+            'parameters.*.follow_up_min' => ['nullable', 'numeric'],
+            'parameters.*.follow_up_max' => ['nullable', 'numeric'],
+            'parameters.*.pass_min' => ['nullable', 'numeric'],
+            'parameters.*.pass_max' => ['nullable', 'numeric'],
         ]);
 
         $stage = $request->input('stage');
@@ -45,6 +53,14 @@ class ScoringParameterController extends Controller
                     'rubric' => $p['rubric'] ?? null,
                     'weight' => $p['weight'],
                     'sort_order' => $idx + 1,
+                    'min_score' => isset($p['min_score']) && $p['min_score'] !== '' ? (float) $p['min_score'] : 1.00,
+                    'max_score' => isset($p['max_score']) && $p['max_score'] !== '' ? (float) $p['max_score'] : ($stream->code === Stream::CODE_ENERGY ? 15.00 : 5.00),
+                    'not_pass_min' => isset($p['not_pass_min']) && $p['not_pass_min'] !== '' ? (float) $p['not_pass_min'] : 1.00,
+                    'not_pass_max' => isset($p['not_pass_max']) && $p['not_pass_max'] !== '' ? (float) $p['not_pass_max'] : ($stream->code === Stream::CODE_ENERGY ? 5.00 : 1.00),
+                    'follow_up_min' => isset($p['follow_up_min']) && $p['follow_up_min'] !== '' ? (float) $p['follow_up_min'] : ($stream->code === Stream::CODE_ENERGY ? 6.00 : 2.00),
+                    'follow_up_max' => isset($p['follow_up_max']) && $p['follow_up_max'] !== '' ? (float) $p['follow_up_max'] : ($stream->code === Stream::CODE_ENERGY ? 10.00 : 3.00),
+                    'pass_min' => isset($p['pass_min']) && $p['pass_min'] !== '' ? (float) $p['pass_min'] : ($stream->code === Stream::CODE_ENERGY ? 11.00 : 4.00),
+                    'pass_max' => isset($p['pass_max']) && $p['pass_max'] !== '' ? (float) $p['pass_max'] : ($stream->code === Stream::CODE_ENERGY ? 15.00 : 5.00),
                 ]);
             }
 

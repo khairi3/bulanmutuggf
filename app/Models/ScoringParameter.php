@@ -21,6 +21,14 @@ class ScoringParameter extends Model
         'rubric',
         'weight',
         'sort_order',
+        'min_score',
+        'max_score',
+        'not_pass_min',
+        'not_pass_max',
+        'follow_up_min',
+        'follow_up_max',
+        'pass_min',
+        'pass_max',
     ];
 
     protected function casts(): array
@@ -28,6 +36,14 @@ class ScoringParameter extends Model
         return [
             'weight' => 'float',
             'sort_order' => 'integer',
+            'min_score' => 'float',
+            'max_score' => 'float',
+            'not_pass_min' => 'float',
+            'not_pass_max' => 'float',
+            'follow_up_min' => 'float',
+            'follow_up_max' => 'float',
+            'pass_min' => 'float',
+            'pass_max' => 'float',
         ];
     }
 

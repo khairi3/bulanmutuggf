@@ -387,4 +387,83 @@ class VerifierController extends Controller
 
         return Storage::disk('local')->download($file->storage_path, $file->original_name);
     }
+
+    /**
+     * Hapus Project yang sudah disubmit oleh Verifikator dengan alasan.
+     */
+    public function destroy(Request $request, Project $project): RedirectResponse
+    {
+        $user = $request->user();
+
+        if (! $this->access->canVerify($user, $project)) {
+            abort(403, 'Anda tidak ditugaskan untuk memverifikasi project ini atau terdapat konflik kepentingan.');
+        }
+
+        if ($project->status === Project::STATUS_DRAFT) {
+            return back()->with('error', 'Project berstatus draft belum masuk ke tahap verifikasi.');
+        }
+
+        if ($project->is_locked || in_array($project->status, Project::CONVENTION_STATUSES, true)) {
+            return back()->with('error', 'Project yang sudah masuk tahap Convention Day atau terkunci tidak dapat dihapus.');
+        }
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:1000'],
+        ], [
+            'reason.required' => 'Alasan penghapusan project wajib diisi.',
+            'reason.min' => 'Alasan penghapusan minimal 5 karakter.',
+            'reason.max' => 'Alasan penghapusan maksimal 1.000 karakter.',
+        ]);
+
+        $reason = trim($validated['reason']);
+        $title = $project->title;
+        $regCode = $project->registration_code ?? ('ID: '.$project->id);
+        $verifierName = $user->employee?->full_name ?? $user->name ?? 'Verifikator';
+
+        DB::transaction(function () use ($project, $user, $reason, $title, $regCode, $verifierName) {
+            // Notifikasi ke ketua dan anggota tim peserta
+            $leaderUserId = $project->leader?->user?->id;
+            $teamUserIds = $project->teamMembers()->with('employee.user')->get()
+                ->pluck('employee.user.id')
+                ->push($leaderUserId)
+                ->filter()
+                ->unique();
+
+            foreach ($teamUserIds as $uId) {
+                Notification::send(
+                    userId: $uId,
+                    type: 'project_deleted',
+                    title: "Project Dihapus oleh Verifikator ({$regCode})",
+                    message: "Project '{$title}' ({$regCode}) telah dihapus oleh Verifikator {$verifierName} dengan alasan: {$reason}",
+                    link: null
+                );
+            }
+
+            // Audit log
+            AuditLog::log(
+                action: 'DELETE_PROJECT_BY_VERIFIER',
+                entityType: 'Project',
+                entityId: $project->id,
+                before: [
+                    'title' => $title,
+                    'registration_code' => $project->registration_code,
+                    'status' => $project->status,
+                    'stream_id' => $project->stream_id,
+                    'leader_employee_id' => $project->leader_employee_id,
+                ],
+                reason: "Dihapus oleh Verifikator {$verifierName}: {$reason}"
+            );
+
+            // Simpan alasan dan user yang menghapus sebelum soft delete
+            $project->update([
+                'deletion_reason' => $reason,
+                'deleted_by' => $user->id,
+            ]);
+
+            $project->delete();
+        });
+
+        return redirect()->route('verifier.dashboard')
+            ->with('success', "Project \"{$regCode} - {$title}\" berhasil dihapus.");
+    }
 }

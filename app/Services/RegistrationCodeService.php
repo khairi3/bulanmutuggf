@@ -25,7 +25,7 @@ class RegistrationCodeService
                 ->first();
 
             // Find highest existing number from projects table for this prefix to avoid collisions with seeded/pre-existing data
-            $highestProjectNumber = (int) (Project::where('registration_code', 'LIKE', "{$prefix}-%")
+            $highestProjectNumber = (int) (Project::withTrashed()->where('registration_code', 'LIKE', "{$prefix}-%")
                 ->pluck('registration_code')
                 ->map(function ($code) {
                     $parts = explode('-', $code);
@@ -55,7 +55,7 @@ class RegistrationCodeService
             $nextNumber = max($sequence->last_number, $highestProjectNumber) + 1;
 
             // Collision check: verify code is truly unused, increment if already taken
-            while (Project::where('registration_code', "{$prefix}-".sprintf('%03d', $nextNumber))->exists()) {
+            while (Project::withTrashed()->where('registration_code', "{$prefix}-".sprintf('%03d', $nextNumber))->exists()) {
                 $nextNumber++;
             }
 

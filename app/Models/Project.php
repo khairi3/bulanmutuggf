@@ -75,6 +75,8 @@ class Project extends Model
         'submitted_at',
         'finalised_at',
         'is_locked',
+        'deleted_by',
+        'deletion_reason',
     ];
 
     protected $appends = ['status_label'];
@@ -107,6 +109,11 @@ class Project extends Model
     public function leader(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'leader_employee_id');
+    }
+
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by');
     }
 
     public function currentVersion(): BelongsTo

@@ -6,6 +6,7 @@ import Badge from '@/Components/Badge';
 import Stepper from '@/Components/Stepper';
 import Button from '@/Components/Button';
 import Modal from '@/Components/Modal';
+import DeleteProjectModal from '@/Components/DeleteProjectModal';
 import {
     FolderPlus,
     FileText,
@@ -28,6 +29,7 @@ export default function ParticipantDashboard({ projects = [], activeEvent }) {
     const { auth, certificates } = usePage().props;
     const employee = auth?.user?.employee;
     const [deletingDraft, setDeletingDraft] = useState(null);
+    const [deletingSubmitted, setDeletingSubmitted] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
     const handleConfirmDelete = () => {
@@ -307,13 +309,25 @@ export default function ParticipantDashboard({ projects = [], activeEvent }) {
                                                 </Link>
                                             </div>
                                         ) : (
-                                            <Link
-                                                href={`/participant/projects/${proj.id}`}
-                                                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition"
-                                            >
-                                                <span>Buka Project</span>
-                                                <ChevronRight className="w-3.5 h-3.5" />
-                                            </Link>
+                                            <div className="flex items-center gap-2">
+                                                {isLeader && (proj.status === 'submitted' || proj.status === 'in_verification') && !proj.is_locked && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDeletingSubmitted(proj)}
+                                                        className="p-2 rounded-xl border border-slate-200 text-rose-600 hover:text-rose-700 hover:bg-rose-50 hover:border-rose-200 transition shadow-2xs"
+                                                        title="Hapus Project (Double Submit / Batal)"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                                <Link
+                                                    href={`/participant/projects/${proj.id}`}
+                                                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition"
+                                                >
+                                                    <span>Buka Project</span>
+                                                    <ChevronRight className="w-3.5 h-3.5" />
+                                                </Link>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -362,6 +376,31 @@ export default function ParticipantDashboard({ projects = [], activeEvent }) {
                     </div>
                 </div>
             </Modal>
+
+            {/* Modal Konfirmasi Hapus Project Submitted (Double Submit) */}
+            <DeleteProjectModal
+                isOpen={Boolean(deletingSubmitted)}
+                onClose={() => setDeletingSubmitted(null)}
+                project={deletingSubmitted ? {
+                    ...deletingSubmitted,
+                    leader_name: deletingSubmitted.leader?.full_name || employee?.full_name,
+                    stream_name: deletingSubmitted.stream?.name,
+                    unit: deletingSubmitted.leader?.unit || employee?.unit,
+                } : null}
+                deleteUrl={deletingSubmitted ? `/participant/projects/${deletingSubmitted.id}` : ''}
+                title="Hapus Project Terdaftar (Double Submit)?"
+                description="Batalkan pendaftaran project ini jika terjadi double submit atau kesalahan pengajuan."
+                noticeText="Project ini akan dibatalkan dan dihapus dari sistem verifikasi. Anggota tim dapat didaftarkan kembali pada project inovasi lainnya."
+                presets={[
+                    'Double submit / pendaftaran ganda',
+                    'Salah pilih stream atau kategori inovasi',
+                    'Perubahan anggota tim / ingin daftar ulang',
+                    'Dibatalkan oleh kesepakatan tim',
+                ]}
+                requiredReason={false}
+                defaultReason="Double submit / pendaftaran ganda"
+                confirmButtonText="Hapus & Batalkan Project"
+            />
         </AppLayout>
     );
 }

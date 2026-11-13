@@ -7,6 +7,7 @@ import Button from '@/Components/Button';
 import Input from '@/Components/Input';
 import Modal from '@/Components/Modal';
 import FeedbackThread from '@/Components/FeedbackThread';
+import DeleteProjectModal from '@/Components/DeleteProjectModal';
 import { 
     ArrowLeft, 
     FileText, 
@@ -86,6 +87,7 @@ export default function VerifierProjectShow({
 
     const [activeTab, setActiveTab] = useState('scoring'); // Default to scoring for verifiers
     const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedPhoto, setSelectedPhoto] = useState(null);
     const [selectedVersion, setSelectedVersion] = useState(null);
 
@@ -106,22 +108,52 @@ export default function VerifierProjectShow({
 
     const [scores, setScores] = useState(initialScores);
 
-    // Helper to evaluate quantitative status (Pass: 5, Need Follow Up: 3, Not Pass: 1)
-    const getEvaluationStatus = (rawScore) => {
+    const getParamRanges = (param) => {
+        const isEnergy = project?.stream?.code === 'ENERGY';
+        const minScore = param?.min_score !== null && param?.min_score !== undefined ? parseFloat(param.min_score) : 1;
+        const maxScore = param?.max_score !== null && param?.max_score !== undefined ? parseFloat(param.max_score) : (isEnergy ? 15 : 5);
+        const notPassMin = param?.not_pass_min !== null && param?.not_pass_min !== undefined ? parseFloat(param.not_pass_min) : 1;
+        const notPassMax = param?.not_pass_max !== null && param?.not_pass_max !== undefined ? parseFloat(param.not_pass_max) : (isEnergy ? 5 : 1);
+        const followUpMin = param?.follow_up_min !== null && param?.follow_up_min !== undefined ? parseFloat(param.follow_up_min) : (isEnergy ? 6 : 2);
+        const followUpMax = param?.follow_up_max !== null && param?.follow_up_max !== undefined ? parseFloat(param.follow_up_max) : (isEnergy ? 10 : 3);
+        const passMin = param?.pass_min !== null && param?.pass_min !== undefined ? parseFloat(param.pass_min) : (isEnergy ? 11 : 4);
+        const passMax = param?.pass_max !== null && param?.pass_max !== undefined ? parseFloat(param.pass_max) : (isEnergy ? 15 : 5);
+
+        return {
+            minScore,
+            maxScore,
+            notPassMin,
+            notPassMax,
+            followUpMin,
+            followUpMax,
+            passMin,
+            passMax,
+            isScale15: maxScore > 5,
+        };
+    };
+
+    // Helper to evaluate quantitative status (Pass, Need Follow Up, Not Pass) with dynamic ranges
+    const getEvaluationStatus = (rawScore, param) => {
         if (rawScore === null || rawScore === undefined || rawScore === '' || isNaN(parseFloat(rawScore))) {
             return null;
         }
         const val = parseFloat(rawScore);
-        // Compatibility for legacy 0-100 scale
-        if (val > 5) {
-            if (val >= 85) return { key: 'pass', label: 'Pass', score: 5, color: 'emerald' };
-            if (val >= 50) return { key: 'followUp', label: 'Need Follow Up', score: 3, color: 'amber' };
-            return { key: 'notPass', label: 'Not Pass', score: 1, color: 'rose' };
+        const ranges = getParamRanges(param);
+
+        // Compatibility for legacy 0-100 scale (if val exceeds parameter's maxScore and > 15)
+        if (val > ranges.maxScore && val > 15) {
+            if (val >= 85) return { key: 'pass', label: 'Pass', score: ranges.passMax, color: 'emerald' };
+            if (val >= 50) return { key: 'followUp', label: 'Need Follow Up', score: ranges.followUpMax, color: 'amber' };
+            return { key: 'notPass', label: 'Not Pass', score: ranges.notPassMax, color: 'rose' };
         }
-        // Quantification scale 1 to 5
-        if (val >= 4) return { key: 'pass', label: 'Pass', score: 5, color: 'emerald' };
-        if (val >= 2) return { key: 'followUp', label: 'Need Follow Up', score: 3, color: 'amber' };
-        return { key: 'notPass', label: 'Not Pass', score: 1, color: 'rose' };
+
+        if (val >= ranges.passMin) {
+            return { key: 'pass', label: 'Pass', score: val, color: 'emerald' };
+        }
+        if (val >= ranges.followUpMin) {
+            return { key: 'followUp', label: 'Need Follow Up', score: val, color: 'amber' };
+        }
+        return { key: 'notPass', label: 'Not Pass', score: val, color: 'rose' };
     };
 
     // Qualitative status counts & quantitative score metrics
@@ -132,10 +164,14 @@ export default function VerifierProjectShow({
         let unrated = 0;
         let totalScore = 0;
         let totalWeighted = 0;
+        let maxTotalScore = 0;
 
         scoringParameters.forEach((param) => {
             const raw = scores[param.id]?.score;
-            const evalResult = getEvaluationStatus(raw);
+            const ranges = getParamRanges(param);
+            maxTotalScore += ranges.maxScore;
+
+            const evalResult = getEvaluationStatus(raw, param);
             if (!evalResult) {
                 unrated++;
             } else {
@@ -150,20 +186,25 @@ export default function VerifierProjectShow({
         });
 
         const ratedCount = pass + followUp + notPass;
-        const maxTotalScore = (scoringParameters.length || 0) * 5;
         const avgScore = ratedCount > 0 ? totalScore / ratedCount : 0;
+        const maxScale = scoringParameters.length > 0
+            ? Math.max(...scoringParameters.map(p => getParamRanges(p).maxScore))
+            : (project?.stream?.code === 'ENERGY' ? 15 : 5);
+        const isScale15 = maxScale > 5;
 
         return {
             statusSummary: { pass, followUp, notPass, unrated },
             scoreMetrics: {
-                totalScore,
+                totalScore: Math.round(totalScore * 100) / 100,
                 maxTotalScore,
+                maxScale,
+                isScale15,
                 avgScore: Math.round(avgScore * 100) / 100,
                 totalWeighted: Math.round(totalWeighted * 100) / 100,
                 ratedCount,
             }
         };
-    }, [scoringParameters, scores]);
+    }, [scoringParameters, scores, project?.stream?.code]);
 
     const handleScoreChange = (paramId, value) => {
         if (isScoreLocked) return;
@@ -310,6 +351,16 @@ export default function VerifierProjectShow({
                         </div>
 
                         <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setIsDeleteModalOpen(true)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors shadow-2xs"
+                                title="Hapus Project & Berikan Alasan"
+                            >
+                                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                                <span>Hapus Project</span>
+                            </button>
+
                             {isScoreLocked ? (
                                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-300">
                                     <Lock className="w-3.5 h-3.5 text-emerald-600" />
@@ -440,7 +491,8 @@ export default function VerifierProjectShow({
                                     const rawScore = scores[param.id]?.score;
                                     const currentNote = scores[param.id]?.note ?? '';
                                     const rubricData = parseRubricDetails(param.rubric);
-                                    const evalResult = getEvaluationStatus(rawScore);
+                                    const ranges = getParamRanges(param);
+                                    const evalResult = getEvaluationStatus(rawScore, param);
 
                                     // Determine qualitative status & quantification
                                     const isPass = evalResult?.key === 'pass';
@@ -481,17 +533,17 @@ export default function VerifierProjectShow({
                                                     {isPass ? (
                                                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                                                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                                            <span>Pass (Skor: 5)</span>
+                                                            <span>Pass (Skor: {rawScore})</span>
                                                         </span>
                                                     ) : isFollowUp ? (
                                                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
                                                             <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                                                            <span>Need Follow Up (Skor: 3)</span>
+                                                            <span>Need Follow Up (Skor: {rawScore})</span>
                                                         </span>
                                                     ) : isNotPass ? (
                                                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">
                                                             <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                                                            <span>Not Pass (Skor: 1)</span>
+                                                            <span>Not Pass (Skor: {rawScore})</span>
                                                         </span>
                                                     ) : (
                                                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-500">
@@ -507,11 +559,11 @@ export default function VerifierProjectShow({
                                                     Pilih Kategori Status Lapangan & Skor Kuantifikasi:
                                                 </div>
                                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                                                    {/* PASS (Skor 5) */}
+                                                    {/* PASS */}
                                                     <button
                                                         type="button"
                                                         disabled={isScoreLocked}
-                                                        onClick={() => handleScoreChange(param.id, 5)}
+                                                        onClick={() => handleScoreChange(param.id, ranges.passMax)}
                                                         className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                                                             isPass
                                                                 ? 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
@@ -524,8 +576,8 @@ export default function VerifierProjectShow({
                                                                 Pass
                                                             </span>
                                                             <div className="flex items-center gap-1.5">
-                                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300">
-                                                                    Skor: 5
+                                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300 font-mono">
+                                                                    {ranges.passMin === ranges.passMax ? `Skor: ${ranges.passMax}` : `Range: ${ranges.passMin}-${ranges.passMax}`}
                                                                 </span>
                                                                 {isPass && (
                                                                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-600 text-white">
@@ -545,11 +597,11 @@ export default function VerifierProjectShow({
                                                         )}
                                                     </button>
 
-                                                    {/* Need Follow Up (Skor 3) */}
+                                                    {/* Need Follow Up */}
                                                     <button
                                                         type="button"
                                                         disabled={isScoreLocked}
-                                                        onClick={() => handleScoreChange(param.id, 3)}
+                                                        onClick={() => handleScoreChange(param.id, ranges.followUpMax)}
                                                         className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                                                             isFollowUp
                                                                 ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-500/20 shadow-xs'
@@ -562,8 +614,8 @@ export default function VerifierProjectShow({
                                                                 Need Follow Up
                                                             </span>
                                                             <div className="flex items-center gap-1.5">
-                                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300">
-                                                                    Skor: 3
+                                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 font-mono">
+                                                                    {ranges.followUpMin === ranges.followUpMax ? `Skor: ${ranges.followUpMax}` : `Range: ${ranges.followUpMin}-${ranges.followUpMax}`}
                                                                 </span>
                                                                 {isFollowUp && (
                                                                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-600 text-white">
@@ -583,11 +635,11 @@ export default function VerifierProjectShow({
                                                         )}
                                                     </button>
 
-                                                    {/* Not Pass (Skor 1) */}
+                                                    {/* Not Pass */}
                                                     <button
                                                         type="button"
                                                         disabled={isScoreLocked}
-                                                        onClick={() => handleScoreChange(param.id, 1)}
+                                                        onClick={() => handleScoreChange(param.id, ranges.notPassMax)}
                                                         className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                                                             isNotPass
                                                                 ? 'bg-rose-50/90 border-rose-500 ring-2 ring-rose-500/20 shadow-xs'
@@ -600,8 +652,8 @@ export default function VerifierProjectShow({
                                                                 Not Pass
                                                             </span>
                                                             <div className="flex items-center gap-1.5">
-                                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-rose-100 text-rose-900 border border-rose-300">
-                                                                    Skor: 1
+                                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-rose-100 text-rose-900 border border-rose-300 font-mono">
+                                                                    {ranges.notPassMin === ranges.notPassMax ? `Skor: ${ranges.notPassMax}` : `Range: ${ranges.notPassMin}-${ranges.notPassMax}`}
                                                                 </span>
                                                                 {isNotPass && (
                                                                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-600 text-white">
@@ -621,19 +673,44 @@ export default function VerifierProjectShow({
                                                         )}
                                                     </button>
                                                 </div>
+
+                                                {/* Direct Numeric Score Input */}
+                                                <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                                    <div className="text-xs">
+                                                        <span className="font-bold text-slate-800 block">Input Angka Nilai Langsung:</span>
+                                                        <span className="text-[11px] text-slate-500">
+                                                            Isi skor spesifik dalam range <strong className="font-mono text-slate-700">{ranges.minScore} - {ranges.maxScore}</strong> (Not Pass: {ranges.notPassMin}-{ranges.notPassMax}, Follow Up: {ranges.followUpMin}-{ranges.followUpMax}, Pass: {ranges.passMin}-{ranges.passMax})
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        <label className="text-xs font-semibold text-slate-600">Nilai Parameter:</label>
+                                                        <input
+                                                            type="number"
+                                                            min={ranges.minScore}
+                                                            max={ranges.maxScore}
+                                                            step="any"
+                                                            disabled={isScoreLocked}
+                                                            value={rawScore ?? ''}
+                                                            onChange={(e) => handleScoreChange(param.id, e.target.value)}
+                                                            className="w-24 text-center font-mono font-bold text-sm rounded-lg border-slate-300 focus:border-emerald-500 focus:ring-emerald-500 bg-white"
+                                                            placeholder={`${ranges.minScore}-${ranges.maxScore}`}
+                                                        />
+                                                        <span className="text-xs font-semibold text-slate-500">pts</span>
+                                                    </div>
+                                                </div>
                                             </div>
 
-                                                {/* Optional Note */}
-                                                <div className="mt-3">
-                                                    <input
-                                                        type="text"
-                                                        disabled={isScoreLocked}
-                                                        placeholder="Catatan / observasi lapangan untuk kriteria ini (opsional)..."
-                                                        value={currentNote}
-                                                        onChange={(e) => handleNoteChange(param.id, e.target.value)}
-                                                        className="w-full text-xs py-2 px-3 border border-slate-200 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 focus:bg-white disabled:bg-slate-100"
-                                                    />
-                                                </div>
+                                            {/* Optional Note */}
+                                            <div className="mt-3 pl-8">
+                                                <input
+                                                    type="text"
+                                                    disabled={isScoreLocked}
+                                                    placeholder="Catatan / observasi lapangan untuk kriteria ini (opsional)..."
+                                                    value={currentNote}
+                                                    onChange={(e) => handleNoteChange(param.id, e.target.value)}
+                                                    className="w-full text-xs py-2 px-3 border border-slate-200 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 focus:bg-white disabled:bg-slate-100"
+                                                />
+                                            </div>
                                         </Card>
                                     );
                                 })
@@ -676,7 +753,7 @@ export default function VerifierProjectShow({
                                                 Pass
                                             </span>
                                             <span className="text-[9px] text-emerald-400/90 font-mono font-bold mt-0.5 block">
-                                                5 Poin
+                                                {scoreMetrics.isScale15 ? '11 - 15 Poin' : '5 Poin'}
                                             </span>
                                         </div>
                                         <div className="p-2.5 rounded-lg bg-amber-950/60 border border-amber-500/30">
@@ -687,7 +764,7 @@ export default function VerifierProjectShow({
                                                 Follow Up
                                             </span>
                                             <span className="text-[9px] text-amber-400/90 font-mono font-bold mt-0.5 block">
-                                                3 Poin
+                                                {scoreMetrics.isScale15 ? '6 - 10 Poin' : '3 Poin'}
                                             </span>
                                         </div>
                                         <div className="p-2.5 rounded-lg bg-rose-950/60 border border-rose-500/30">
@@ -698,7 +775,7 @@ export default function VerifierProjectShow({
                                                 Not Pass
                                             </span>
                                             <span className="text-[9px] text-rose-400/90 font-mono font-bold mt-0.5 block">
-                                                1 Poin
+                                                {scoreMetrics.isScale15 ? '1 - 5 Poin' : '1 Poin'}
                                             </span>
                                         </div>
                                     </div>
@@ -749,7 +826,7 @@ export default function VerifierProjectShow({
                                     <div className="flex justify-between py-1.5 border-b border-slate-100">
                                         <span className="text-slate-500">Nilai Tertimbang:</span>
                                         <span className="font-black text-emerald-700 font-mono">
-                                            {scoreMetrics.totalWeighted.toFixed(2)} / 5.00
+                                            {scoreMetrics.totalWeighted.toFixed(2)} / {scoreMetrics.maxScale.toFixed(2)}
                                         </span>
                                     </div>
                                     <div className="flex justify-between py-1.5 border-b border-slate-100">
@@ -1497,6 +1574,18 @@ export default function VerifierProjectShow({
                     </div>
                 </Modal>
             )}
+
+            {/* Delete Project Modal */}
+            <DeleteProjectModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                project={{
+                    ...project,
+                    leader_name: project.leader?.full_name,
+                    stream_name: project.stream?.name,
+                    unit: project.leader?.unit,
+                }}
+            />
         </AppLayout>
     );
 }

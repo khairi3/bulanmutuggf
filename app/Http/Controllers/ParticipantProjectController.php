@@ -902,7 +902,7 @@ class ParticipantProjectController extends Controller
     }
 
     /**
-     * Delete a draft project.
+     * Delete a draft or submitted project (e.g. double submit).
      */
     public function destroy(Request $request, Project $project): RedirectResponse
     {
@@ -910,32 +910,92 @@ class ParticipantProjectController extends Controller
 
         // Ensure user is the leader of this project or an admin
         if ($project->leader_employee_id !== $user->employee_id && ! $user->hasRole('admin')) {
-            abort(403, 'Hanya ketua tim yang dapat menghapus draft project ini.');
+            abort(403, 'Hanya ketua tim yang dapat menghapus project ini.');
         }
 
-        if ($project->status !== Project::STATUS_DRAFT) {
-            return back()->with('error', 'Hanya project dengan status Draft yang dapat dihapus.');
+        // Project yang sudah terkunci di tahap convention tidak boleh dihapus
+        if ($project->is_locked || in_array($project->status, Project::CONVENTION_STATUSES, true)) {
+            return back()->with('error', 'Project yang sudah masuk tahap Convention Day atau terkunci tidak dapat dihapus.');
         }
 
+        // Project yang sudah dinilai final / diverifikasi oleh verifikator tidak dapat dihapus oleh peserta
+        if (in_array($project->status, [Project::STATUS_VERIFIED, Project::STATUS_QUALIFIED, Project::STATUS_UNQUALIFIED], true)
+            || $project->scoreSheets()->where('status', 'submitted')->exists()
+        ) {
+            return back()->with('error', 'Project yang sudah selesai diverifikasi atau dinilai oleh Verifikator tidak dapat dihapus.');
+        }
+
+        $isDraft = $project->status === Project::STATUS_DRAFT;
+
+        if (! $isDraft) {
+            $request->validate([
+                'reason' => ['nullable', 'string', 'max:1000'],
+            ]);
+        }
+
+        $reason = trim((string) $request->input('reason', '')) ?: ($isDraft ? 'Hapus draft' : 'Double submit / pendaftaran ulang oleh peserta');
         $title = $project->title;
+        $regCode = $project->registration_code ?? ('Draft #'.$project->id);
+        $leaderName = $user->employee?->full_name ?? $user->name ?? 'Ketua Tim';
 
-        DB::transaction(function () use ($project, $title) {
-            $project->teamMembers()->delete();
-            $project->categories()->detach();
-            $project->charterVersions()->delete();
-            $project->files()->delete();
-            $project->forceDelete();
+        DB::transaction(function () use ($project, $user, $title, $regCode, $reason, $isDraft, $leaderName) {
+            if ($isDraft) {
+                $project->teamMembers()->delete();
+                $project->categories()->detach();
+                $project->charterVersions()->delete();
+                $project->files()->delete();
+                $project->forceDelete();
 
-            AuditLog::log(
-                action: 'DELETE_DRAFT_PROJECT',
-                entityType: 'Project',
-                entityId: $project->id,
-                before: ['title' => $title, 'status' => 'draft'],
-                reason: "Menghapus draft project: {$title}"
-            );
+                AuditLog::log(
+                    action: 'DELETE_DRAFT_PROJECT',
+                    entityType: 'Project',
+                    entityId: $project->id,
+                    before: ['title' => $title, 'status' => 'draft'],
+                    reason: "Menghapus draft project: {$title}"
+                );
+            } else {
+                // Notifikasi ke anggota tim lainnya jika ada
+                $teamUserIds = $project->teamMembers()->with('employee.user')->get()
+                    ->pluck('employee.user.id')
+                    ->filter(fn ($id) => $id && $id !== $user->id)
+                    ->unique();
+
+                foreach ($teamUserIds as $uId) {
+                    Notification::send(
+                        userId: $uId,
+                        type: 'project_deleted',
+                        title: "Project Dihapus oleh Ketua Tim ({$regCode})",
+                        message: "Project '{$title}' ({$regCode}) telah dihapus oleh Ketua Tim ({$leaderName}) dengan alasan: {$reason}",
+                        link: null
+                    );
+                }
+
+                $project->update([
+                    'deletion_reason' => $reason,
+                    'deleted_by' => $user->id,
+                ]);
+
+                $project->delete();
+
+                AuditLog::log(
+                    action: 'DELETE_PROJECT_BY_PARTICIPANT',
+                    entityType: 'Project',
+                    entityId: $project->id,
+                    before: [
+                        'title' => $title,
+                        'registration_code' => $regCode,
+                        'status' => $project->status,
+                        'stream_id' => $project->stream_id,
+                    ],
+                    reason: "Dihapus oleh Peserta ({$leaderName}): {$reason}"
+                );
+            }
         });
 
-        return redirect()->route('participant.dashboard')
-            ->with('success', "Draft project \"{$title}\" berhasil dihapus.");
+        $msg = $isDraft
+            ? "Draft project \"{$title}\" berhasil dihapus."
+            : "Project \"{$regCode} - {$title}\" berhasil dihapus.";
+
+        return redirect()->route('participant.dashboard')->with('success', $msg);
     }
 }

@@ -451,7 +451,19 @@ class EventConfigurationSeeder extends Seeder
             foreach ($parameters as $p) {
                 ScoringParameter::updateOrCreate(
                     ['stream_id' => $streamId, 'stage' => $stage, 'name' => $p['name']],
-                    ['rubric' => $p['rubric'], 'weight' => $p['weight'], 'sort_order' => $p['sort_order']]
+                    [
+                        'rubric' => $p['rubric'],
+                        'weight' => $p['weight'],
+                        'sort_order' => $p['sort_order'],
+                        'min_score' => 1,
+                        'max_score' => 15,
+                        'not_pass_min' => 1,
+                        'not_pass_max' => 5,
+                        'follow_up_min' => 6,
+                        'follow_up_max' => 10,
+                        'pass_min' => 11,
+                        'pass_max' => 15,
+                    ]
                 );
             }
         }

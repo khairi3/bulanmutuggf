@@ -376,4 +376,90 @@ class ParticipantProjectTest extends TestCase
         $this->assertNotNull($newProject);
         $this->assertEquals('SIGAP-002', $newProject->registration_code);
     }
+
+    public function test_participant_leader_can_delete_submitted_project_double_submit(): void
+    {
+        $leaderEmployee = Employee::where('employee_index', 'EMP1007')->first();
+        $leader = $leaderEmployee->user;
+        $cic = Stream::where('code', Stream::CODE_CIC)->first();
+
+        // Create submitted project
+        $project = Project::create([
+            'stream_id' => $cic->id,
+            'title' => 'Project Double Submit Inovasi',
+            'status' => Project::STATUS_SUBMITTED,
+            'registration_code' => 'BMECHPG1-999',
+            'leader_employee_id' => $leaderEmployee->id,
+        ]);
+
+        $reason = 'Double submit pendaftaran oleh ketua';
+
+        $response = $this->actingAs($leader)->delete("/participant/projects/{$project->id}", [
+            'reason' => $reason,
+        ]);
+
+        $response->assertRedirect('/participant/dashboard');
+        $response->assertSessionHas('success');
+
+        $this->assertSoftDeleted('projects', [
+            'id' => $project->id,
+            'deletion_reason' => $reason,
+            'deleted_by' => $leader->id,
+        ]);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'DELETE_PROJECT_BY_PARTICIPANT',
+            'entity_id' => $project->id,
+        ]);
+    }
+
+    public function test_non_leader_cannot_delete_submitted_project(): void
+    {
+        $leaderEmployee = Employee::where('employee_index', 'EMP1007')->first();
+        $otherUser = Employee::where('employee_index', 'EMP1008')->first()->user;
+        $cic = Stream::where('code', Stream::CODE_CIC)->first();
+
+        $project = Project::create([
+            'stream_id' => $cic->id,
+            'title' => 'Project Bukan Milik User',
+            'status' => Project::STATUS_SUBMITTED,
+            'registration_code' => 'BMECHPG1-998',
+            'leader_employee_id' => $leaderEmployee->id,
+        ]);
+
+        $response = $this->actingAs($otherUser)->delete("/participant/projects/{$project->id}", [
+            'reason' => 'Mencoba menghapus project orang lain',
+        ]);
+
+        $response->assertStatus(403);
+        $this->assertDatabaseHas('projects', [
+            'id' => $project->id,
+            'deleted_at' => null,
+        ]);
+    }
+
+    public function test_participant_cannot_delete_verified_project(): void
+    {
+        $leaderEmployee = Employee::where('employee_index', 'EMP1007')->first();
+        $leader = $leaderEmployee->user;
+        $cic = Stream::where('code', Stream::CODE_CIC)->first();
+
+        $project = Project::create([
+            'stream_id' => $cic->id,
+            'title' => 'Project Sudah Terverifikasi',
+            'status' => Project::STATUS_VERIFIED,
+            'registration_code' => 'BMECHPG1-997',
+            'leader_employee_id' => $leaderEmployee->id,
+        ]);
+
+        $response = $this->actingAs($leader)->delete("/participant/projects/{$project->id}", [
+            'reason' => 'Coba hapus project terverifikasi',
+        ]);
+
+        $response->assertSessionHas('error');
+        $this->assertDatabaseHas('projects', [
+            'id' => $project->id,
+            'deleted_at' => null,
+        ]);
+    }
 }

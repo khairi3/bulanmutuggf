@@ -150,6 +150,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware(['must.change.password', 'role:verifier'])->prefix('verifier')->name('verifier.')->group(function () {
         Route::get('/dashboard', [VerifierController::class, 'dashboard'])->name('dashboard');
         Route::get('/projects/{project}', [VerifierController::class, 'show'])->name('projects.show');
+        Route::delete('/projects/{project}', [VerifierController::class, 'destroy'])->name('projects.destroy');
         Route::post('/projects/{project}/feedback', [VerifierController::class, 'storeFeedback'])->name('projects.feedback.store');
         Route::delete('/projects/{project}/feedback/{feedback}', [VerifierController::class, 'destroyFeedback'])->name('projects.feedback.destroy');
         Route::post('/projects/{project}/visits', [VerifierController::class, 'storeVisit'])->name('projects.visits.store');
