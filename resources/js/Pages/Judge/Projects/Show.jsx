@@ -71,9 +71,10 @@ export default function JudgeProjectShow({
     const existingScoresMap = {};
     if (myScoreSheet?.items) {
         myScoreSheet.items.forEach(item => {
-            existingScoresMap[item.scoring_parameter_id] = {
+            const pId = item.parameter_id ?? item.scoring_parameter_id;
+            existingScoresMap[pId] = {
                 score: item.score ?? '',
-                notes: item.notes ?? '',
+                notes: item.note ?? item.notes ?? '',
             };
         });
     }
@@ -89,6 +90,51 @@ export default function JudgeProjectShow({
         return init;
     });
 
+    const getParamRanges = (param) => {
+        const minScore = param?.min_score !== null && param?.min_score !== undefined ? parseFloat(param.min_score) : 1;
+        const maxScore = param?.max_score !== null && param?.max_score !== undefined ? parseFloat(param.max_score) : 15;
+        const notPassMin = param?.not_pass_min !== null && param?.not_pass_min !== undefined ? parseFloat(param.not_pass_min) : 1;
+        const notPassMax = param?.not_pass_max !== null && param?.not_pass_max !== undefined ? parseFloat(param.not_pass_max) : 5;
+        const followUpMin = param?.follow_up_min !== null && param?.follow_up_min !== undefined ? parseFloat(param.follow_up_min) : 6;
+        const followUpMax = param?.follow_up_max !== null && param?.follow_up_max !== undefined ? parseFloat(param.follow_up_max) : 10;
+        const passMin = param?.pass_min !== null && param?.pass_min !== undefined ? parseFloat(param.pass_min) : 11;
+        const passMax = param?.pass_max !== null && param?.pass_max !== undefined ? parseFloat(param.pass_max) : 15;
+
+        const notPassLabel = param?.not_pass_label || 'Kurang';
+        const followUpLabel = param?.follow_up_label || 'Baik';
+        const passLabel = param?.pass_label || 'Sangat Baik';
+
+        return {
+            minScore,
+            maxScore,
+            notPassMin,
+            notPassMax,
+            followUpMin,
+            followUpMax,
+            passMin,
+            passMax,
+            notPassLabel,
+            followUpLabel,
+            passLabel,
+        };
+    };
+
+    const getEvaluationStatus = (rawScore, param) => {
+        if (rawScore === null || rawScore === undefined || rawScore === '' || isNaN(parseFloat(rawScore))) {
+            return null;
+        }
+        const val = parseFloat(rawScore);
+        const ranges = getParamRanges(param);
+
+        if (val >= ranges.passMin) {
+            return { key: 'pass', label: ranges.passLabel, score: val, color: 'emerald' };
+        }
+        if (val >= ranges.followUpMin) {
+            return { key: 'followUp', label: ranges.followUpLabel, score: val, color: 'amber' };
+        }
+        return { key: 'notPass', label: ranges.notPassLabel, score: val, color: 'rose' };
+    };
+
     const [isSavingDraft, setIsSavingDraft] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitConfirmModal, setSubmitConfirmModal] = useState(false);
@@ -96,7 +142,7 @@ export default function JudgeProjectShow({
 
     const isLocked = myScoreSheet?.status === 'submitted';
 
-    // Calculate Live Weighted Total
+    // Calculate Live Weighted Total & Max Scale
     const calculateTotalWeighted = () => {
         let total = 0;
         scoringParameters.forEach(p => {
@@ -108,18 +154,26 @@ export default function JudgeProjectShow({
         return Math.round(total * 100) / 100;
     };
 
+    const maxWeightedPossible = scoringParameters.reduce((acc, p) => {
+        const ranges = getParamRanges(p);
+        return acc + (ranges.maxScore * p.weight) / 100;
+    }, 0) || 15;
+
     const currentTotalWeighted = calculateTotalWeighted();
 
     // Check if all parameters are filled (required for submit)
     const isAllParametersFilled = scoringParameters.length > 0 && scoringParameters.every(p => {
         const val = parseFloat(scores[p.id]?.score);
-        return !isNaN(val) && val >= 0 && val <= 100;
+        const ranges = getParamRanges(p);
+        return !isNaN(val) && val >= ranges.minScore && val <= Math.max(ranges.maxScore, 100);
     });
 
-    const handleScoreChange = (paramId, value) => {
+    const handleScoreChange = (paramId, value, param = null) => {
         if (isLocked) return;
         setValidationError('');
-        let numVal = value === '' ? '' : Math.max(0, Math.min(100, Number(value)));
+        const targetParam = param || scoringParameters.find(p => p.id === paramId);
+        const ranges = getParamRanges(targetParam);
+        let numVal = value === '' ? '' : Math.max(0, Math.min(ranges.maxScore, Number(value)));
         setScores(prev => ({
             ...prev,
             [paramId]: {
@@ -142,13 +196,15 @@ export default function JudgeProjectShow({
 
     const handleSave = (submit = false) => {
         if (submit && !isAllParametersFilled) {
-            setValidationError('Seluruh parameter penilaian wajib diisi dengan nilai antara 0 - 100 sebelum melakukan submit final.');
+            setValidationError('Seluruh parameter penilaian wajib diisi sesuai rentang skor yang ditentukan sebelum melakukan submit final.');
             return;
         }
 
         const payload = Object.entries(scores).map(([paramId, data]) => ({
+            parameter_id: parseInt(paramId, 10),
             scoring_parameter_id: parseInt(paramId, 10),
-            score: data.score === '' ? 0 : parseFloat(data.score),
+            score: data.score === '' ? null : parseFloat(data.score),
+            note: data.notes || '',
             notes: data.notes || '',
         }));
 
@@ -541,7 +597,7 @@ export default function JudgeProjectShow({
                                         <span className="text-4xl font-black text-white">
                                             {currentTotalWeighted.toFixed(2)}
                                         </span>
-                                        <span className="text-xs text-purple-300 font-medium">/ 100</span>
+                                        <span className="text-xs text-purple-300 font-medium">/ {Math.round(maxWeightedPossible * 100) / 100}</span>
                                     </div>
                                 </div>
 
@@ -575,7 +631,9 @@ export default function JudgeProjectShow({
                                 scoringParameters.map((param, index) => {
                                     const paramScore = scores[param.id]?.score ?? '';
                                     const paramNotes = scores[param.id]?.notes ?? '';
-                                    const weightedContribution = paramScore !== ''
+                                    const ranges = getParamRanges(param);
+                                    const evalStatus = getEvaluationStatus(paramScore, param);
+                                    const weightedContribution = paramScore !== '' && !isNaN(parseFloat(paramScore))
                                         ? ((parseFloat(paramScore) * param.weight) / 100).toFixed(2)
                                         : '0.00';
 
@@ -595,16 +653,92 @@ export default function JudgeProjectShow({
                                                             {param.name}
                                                         </h4>
                                                     </div>
-                                                    {(param.description || param.rubric) && (
+                                                    {(param.description || (typeof param.rubric === 'string' && param.rubric)) && (
                                                         <p className="text-[11px] text-slate-500 mt-1 ml-7 whitespace-pre-line">
                                                             {param.description || param.rubric}
                                                         </p>
                                                     )}
                                                 </div>
 
-                                                <span className="font-bold text-xs bg-purple-50 text-purple-800 px-2 py-0.5 rounded-lg border border-purple-200 whitespace-nowrap flex-shrink-0">
-                                                    Bobot {param.weight}%
-                                                </span>
+                                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                                    <span className="font-bold text-xs bg-purple-50 text-purple-800 px-2 py-0.5 rounded-lg border border-purple-200 whitespace-nowrap">
+                                                        Bobot {param.weight}%
+                                                    </span>
+                                                    {evalStatus && (
+                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                                            evalStatus.color === 'emerald'
+                                                                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                                                : evalStatus.color === 'amber'
+                                                                ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                                                : 'bg-rose-100 text-rose-800 border-rose-200'
+                                                        }`}>
+                                                            {evalStatus.label} ({paramScore})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* 3 Pilihan Keterangan Penilaian (Kurang / Baik / Sangat Baik) */}
+                                            <div className="grid grid-cols-3 gap-2 pt-1">
+                                                <button
+                                                    type="button"
+                                                    disabled={isLocked}
+                                                    onClick={() => handleScoreChange(param.id, ranges.notPassMax, param)}
+                                                    className={`p-2 rounded-xl border text-left transition cursor-pointer ${
+                                                        evalStatus?.key === 'notPass'
+                                                            ? 'bg-rose-50 border-rose-400 ring-1 ring-rose-400/30'
+                                                            : 'bg-white border-slate-200 hover:border-rose-300'
+                                                    } ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                                >
+                                                    <div className="flex items-center justify-between gap-1">
+                                                        <span className="text-[11px] font-bold text-rose-800 truncate">
+                                                            {ranges.notPassLabel}
+                                                        </span>
+                                                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-900">
+                                                            {ranges.notPassMin === ranges.notPassMax ? ranges.notPassMax : `${ranges.notPassMin}-${ranges.notPassMax}`}
+                                                        </span>
+                                                    </div>
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    disabled={isLocked}
+                                                    onClick={() => handleScoreChange(param.id, ranges.followUpMax, param)}
+                                                    className={`p-2 rounded-xl border text-left transition cursor-pointer ${
+                                                        evalStatus?.key === 'followUp'
+                                                            ? 'bg-amber-50 border-amber-400 ring-1 ring-amber-400/30'
+                                                            : 'bg-white border-slate-200 hover:border-amber-300'
+                                                    } ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                                >
+                                                    <div className="flex items-center justify-between gap-1">
+                                                        <span className="text-[11px] font-bold text-amber-800 truncate">
+                                                            {ranges.followUpLabel}
+                                                        </span>
+                                                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900">
+                                                            {ranges.followUpMin === ranges.followUpMax ? ranges.followUpMax : `${ranges.followUpMin}-${ranges.followUpMax}`}
+                                                        </span>
+                                                    </div>
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    disabled={isLocked}
+                                                    onClick={() => handleScoreChange(param.id, ranges.passMax, param)}
+                                                    className={`p-2 rounded-xl border text-left transition cursor-pointer ${
+                                                        evalStatus?.key === 'pass'
+                                                            ? 'bg-emerald-50 border-emerald-400 ring-1 ring-emerald-400/30'
+                                                            : 'bg-white border-slate-200 hover:border-emerald-300'
+                                                    } ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                                >
+                                                    <div className="flex items-center justify-between gap-1">
+                                                        <span className="text-[11px] font-bold text-emerald-800 truncate">
+                                                            {ranges.passLabel}
+                                                        </span>
+                                                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-900">
+                                                            {ranges.passMin === ranges.passMax ? ranges.passMax : `${ranges.passMin}-${ranges.passMax}`}
+                                                        </span>
+                                                    </div>
+                                                </button>
                                             </div>
 
                                             {/* Slider & Numeric Input */}
@@ -612,31 +746,33 @@ export default function JudgeProjectShow({
                                                 <div className="flex items-center gap-3">
                                                     <input
                                                         type="range"
-                                                        min="0"
-                                                        max="100"
+                                                        min={ranges.minScore}
+                                                        max={ranges.maxScore}
                                                         step="1"
-                                                        value={paramScore === '' ? 0 : paramScore}
+                                                        value={paramScore === '' ? ranges.minScore : paramScore}
                                                         disabled={isLocked}
-                                                        onChange={(e) => handleScoreChange(param.id, e.target.value)}
+                                                        onChange={(e) => handleScoreChange(param.id, e.target.value, param)}
                                                         className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600 disabled:opacity-50"
                                                     />
                                                     <div className="w-20 flex-shrink-0 relative">
                                                         <input
                                                             type="number"
-                                                            min="0"
-                                                            max="100"
-                                                            placeholder="0-100"
+                                                            min={ranges.minScore}
+                                                            max={ranges.maxScore}
+                                                            placeholder={`${ranges.minScore}-${ranges.maxScore}`}
                                                             value={paramScore}
                                                             disabled={isLocked}
-                                                            onChange={(e) => handleScoreChange(param.id, e.target.value)}
+                                                            onChange={(e) => handleScoreChange(param.id, e.target.value, param)}
                                                             className="w-full text-center text-sm font-black py-1.5 px-2 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-slate-100"
                                                         />
                                                     </div>
                                                 </div>
 
                                                 <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                                                    <span>Skala: 0 - 100</span>
-                                                    <span>Kontribusi Nilai: <strong className="text-purple-700">+{weightedContribution}</strong></span>
+                                                    <span>
+                                                        Skala: {ranges.minScore} - {ranges.maxScore} ({ranges.notPassLabel}: {ranges.notPassMin}-{ranges.notPassMax}, {ranges.followUpLabel}: {ranges.followUpMin}-{ranges.followUpMax}, {ranges.passLabel}: {ranges.passMin}-{ranges.passMax})
+                                                    </span>
+                                                    <span className="shrink-0 ml-2">Kontribusi: <strong className="text-purple-700">+{weightedContribution}</strong></span>
                                                 </div>
                                             </div>
 
@@ -729,7 +865,7 @@ export default function JudgeProjectShow({
                             </p>
                             <div className="my-4 p-3 bg-purple-50 rounded-2xl border border-purple-200 text-purple-900">
                                 <span className="text-3xl font-black">{currentTotalWeighted.toFixed(2)}</span>
-                                <span className="text-xs font-bold ml-1">/ 100</span>
+                                <span className="text-xs font-bold ml-1">/ {Math.round(maxWeightedPossible * 100) / 100}</span>
                             </div>
                             <p className="text-xs text-slate-500">
                                 Setelah disubmit, nilai Anda akan resmi masuk dalam perhitungan akhir komite BMG dan terkunci secara independen.

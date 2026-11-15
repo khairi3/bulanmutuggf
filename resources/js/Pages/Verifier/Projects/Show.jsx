@@ -128,6 +128,9 @@ export default function VerifierProjectShow({
             followUpMax,
             passMin,
             passMax,
+            notPassLabel: param?.not_pass_label || 'Not Pass',
+            followUpLabel: param?.follow_up_label || 'Need Follow Up',
+            passLabel: param?.pass_label || 'Pass',
             isScale15: maxScore > 5,
         };
     };
@@ -142,18 +145,18 @@ export default function VerifierProjectShow({
 
         // Compatibility for legacy 0-100 scale (if val exceeds parameter's maxScore and > 15)
         if (val > ranges.maxScore && val > 15) {
-            if (val >= 85) return { key: 'pass', label: 'Pass', score: ranges.passMax, color: 'emerald' };
-            if (val >= 50) return { key: 'followUp', label: 'Need Follow Up', score: ranges.followUpMax, color: 'amber' };
-            return { key: 'notPass', label: 'Not Pass', score: ranges.notPassMax, color: 'rose' };
+            if (val >= 85) return { key: 'pass', label: ranges.passLabel, score: ranges.passMax, color: 'emerald' };
+            if (val >= 50) return { key: 'followUp', label: ranges.followUpLabel, score: ranges.followUpMax, color: 'amber' };
+            return { key: 'notPass', label: ranges.notPassLabel, score: ranges.notPassMax, color: 'rose' };
         }
 
         if (val >= ranges.passMin) {
-            return { key: 'pass', label: 'Pass', score: val, color: 'emerald' };
+            return { key: 'pass', label: ranges.passLabel, score: val, color: 'emerald' };
         }
         if (val >= ranges.followUpMin) {
-            return { key: 'followUp', label: 'Need Follow Up', score: val, color: 'amber' };
+            return { key: 'followUp', label: ranges.followUpLabel, score: val, color: 'amber' };
         }
-        return { key: 'notPass', label: 'Not Pass', score: val, color: 'rose' };
+        return { key: 'notPass', label: ranges.notPassLabel, score: val, color: 'rose' };
     };
 
     // Qualitative status counts & quantitative score metrics
@@ -533,17 +536,17 @@ export default function VerifierProjectShow({
                                                     {isPass ? (
                                                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                                                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                                            <span>Pass (Skor: {rawScore})</span>
+                                                            <span>{ranges.passLabel} (Skor: {rawScore})</span>
                                                         </span>
                                                     ) : isFollowUp ? (
                                                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
                                                             <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                                                            <span>Need Follow Up (Skor: {rawScore})</span>
+                                                            <span>{ranges.followUpLabel} (Skor: {rawScore})</span>
                                                         </span>
                                                     ) : isNotPass ? (
                                                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">
                                                             <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                                                            <span>Not Pass (Skor: {rawScore})</span>
+                                                            <span>{ranges.notPassLabel} (Skor: {rawScore})</span>
                                                         </span>
                                                     ) : (
                                                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-500">
@@ -573,7 +576,7 @@ export default function VerifierProjectShow({
                                                         <div className="flex items-center justify-between">
                                                             <span className="text-xs font-black text-emerald-800 flex items-center gap-1.5">
                                                                 <span className={`w-2.5 h-2.5 rounded-full ${isPass ? 'bg-emerald-500 ring-2 ring-emerald-300' : 'bg-slate-300'}`} />
-                                                                Pass
+                                                                {ranges.passLabel}
                                                             </span>
                                                             <div className="flex items-center gap-1.5">
                                                                 <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300 font-mono">
@@ -611,7 +614,7 @@ export default function VerifierProjectShow({
                                                         <div className="flex items-center justify-between">
                                                             <span className="text-xs font-black text-amber-800 flex items-center gap-1.5">
                                                                 <span className={`w-2.5 h-2.5 rounded-full ${isFollowUp ? 'bg-amber-500 ring-2 ring-amber-300' : 'bg-slate-300'}`} />
-                                                                Need Follow Up
+                                                                {ranges.followUpLabel}
                                                             </span>
                                                             <div className="flex items-center gap-1.5">
                                                                 <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 font-mono">
@@ -649,7 +652,7 @@ export default function VerifierProjectShow({
                                                         <div className="flex items-center justify-between">
                                                             <span className="text-xs font-black text-rose-800 flex items-center gap-1.5">
                                                                 <span className={`w-2.5 h-2.5 rounded-full ${isNotPass ? 'bg-rose-500 ring-2 ring-rose-300' : 'bg-slate-300'}`} />
-                                                                Not Pass
+                                                                {ranges.notPassLabel}
                                                             </span>
                                                             <div className="flex items-center gap-1.5">
                                                                 <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-rose-100 text-rose-900 border border-rose-300 font-mono">
@@ -679,7 +682,7 @@ export default function VerifierProjectShow({
                                                     <div className="text-xs">
                                                         <span className="font-bold text-slate-800 block">Input Angka Nilai Langsung:</span>
                                                         <span className="text-[11px] text-slate-500">
-                                                            Isi skor spesifik dalam range <strong className="font-mono text-slate-700">{ranges.minScore} - {ranges.maxScore}</strong> (Not Pass: {ranges.notPassMin}-{ranges.notPassMax}, Follow Up: {ranges.followUpMin}-{ranges.followUpMax}, Pass: {ranges.passMin}-{ranges.passMax})
+                                                            Isi skor spesifik dalam range <strong className="font-mono text-slate-700">{ranges.minScore} - {ranges.maxScore}</strong> ({ranges.notPassLabel}: {ranges.notPassMin}-{ranges.notPassMax}, {ranges.followUpLabel}: {ranges.followUpMin}-{ranges.followUpMax}, {ranges.passLabel}: {ranges.passMin}-{ranges.passMax})
                                                         </span>
                                                     </div>
                                                     <div className="flex items-center gap-2 shrink-0">

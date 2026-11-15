@@ -102,15 +102,26 @@ class SelectionService
     {
         $projects = $stream->projects()
             ->whereIn('id', $projectIds)
-            ->whereIn('status', [Project::STATUS_VERIFIED, Project::STATUS_QUALIFIED, Project::STATUS_UNQUALIFIED])
+            ->whereIn('status', [
+                Project::STATUS_VERIFIED,
+                Project::STATUS_QUALIFIED,
+                Project::STATUS_UNQUALIFIED,
+                Project::STATUS_FINALISED,
+                Project::STATUS_JUDGING,
+                Project::STATUS_ANNOUNCED,
+            ])
             ->get();
 
         DB::transaction(function () use ($projects, $qualifiedIds, $actor, $stream) {
             foreach ($projects as $project) {
+                // Project yang sudah difinalisasi peserta / sedang dinilai juri otomatis tetap lolos
+                $isLockedQualified = in_array($project->status, Project::CONVENTION_STATUSES, true);
+                $isQualified = $isLockedQualified || in_array($project->id, $qualifiedIds);
+
                 SelectionDecision::updateOrCreate(
                     ['project_id' => $project->id],
                     [
-                        'decision' => in_array($project->id, $qualifiedIds) ? SelectionDecision::QUALIFIED : SelectionDecision::NOT_QUALIFIED,
+                        'decision' => $isQualified ? SelectionDecision::QUALIFIED : SelectionDecision::NOT_QUALIFIED,
                         'decided_by' => $actor->id,
                     ]
                 );
@@ -135,34 +146,54 @@ class SelectionService
     {
         $projects = $stream->projects()
             ->with('selectionDecision')
-            ->whereIn('status', [Project::STATUS_VERIFIED, Project::STATUS_QUALIFIED, Project::STATUS_UNQUALIFIED])
+            ->whereIn('status', [
+                Project::STATUS_VERIFIED,
+                Project::STATUS_QUALIFIED,
+                Project::STATUS_UNQUALIFIED,
+                Project::STATUS_FINALISED,
+                Project::STATUS_JUDGING,
+                Project::STATUS_ANNOUNCED,
+            ])
             ->get();
 
         $qualified = 0;
         $unqualified = 0;
         $newlyQualified = 0;
+        $notifiableProjects = collect();
 
-        DB::transaction(function () use ($projects, $stream, $admin, &$qualified, &$unqualified, &$newlyQualified) {
+        DB::transaction(function () use ($projects, $stream, $admin, &$qualified, &$unqualified, &$newlyQualified, &$notifiableProjects) {
             foreach ($projects as $project) {
                 $decision = $project->selectionDecision;
-                $isQualified = $decision?->decision === SelectionDecision::QUALIFIED;
+                $isAlreadyConvention = in_array($project->status, Project::CONVENTION_STATUSES, true);
+                $isQualified = $isAlreadyConvention || $decision?->decision === SelectionDecision::QUALIFIED;
 
                 if (! $decision) {
                     $decision = SelectionDecision::create([
                         'project_id' => $project->id,
-                        'decision' => SelectionDecision::NOT_QUALIFIED,
+                        'decision' => $isQualified ? SelectionDecision::QUALIFIED : SelectionDecision::NOT_QUALIFIED,
                         'decided_by' => $admin->id,
                     ]);
+                } elseif ($isAlreadyConvention && $decision->decision !== SelectionDecision::QUALIFIED) {
+                    $decision->update(['decision' => SelectionDecision::QUALIFIED]);
                 }
 
-                $decision->update(['published_at' => now()]);
-
-                $newStatus = $isQualified ? Project::STATUS_QUALIFIED : Project::STATUS_UNQUALIFIED;
-                if ($newStatus === Project::STATUS_QUALIFIED && $project->status !== Project::STATUS_QUALIFIED) {
-                    $newlyQualified++;
+                if (! $decision->published_at) {
+                    $decision->update(['published_at' => now()]);
                 }
 
-                $project->update(['status' => $newStatus]);
+                // Jangan timpa status project yang sudah di-finalise peserta atau sedang dinilai juri
+                if (! $isAlreadyConvention) {
+                    $newStatus = $isQualified ? Project::STATUS_QUALIFIED : Project::STATUS_UNQUALIFIED;
+                    if ($newStatus === Project::STATUS_QUALIFIED && $project->status !== Project::STATUS_QUALIFIED) {
+                        $newlyQualified++;
+                        $notifiableProjects->push($project);
+                    } elseif ($project->status === Project::STATUS_VERIFIED) {
+                        $notifiableProjects->push($project);
+                    }
+
+                    $project->update(['status' => $newStatus]);
+                }
+
                 $isQualified ? $qualified++ : $unqualified++;
             }
 
@@ -182,8 +213,8 @@ class SelectionService
             );
         });
 
-        foreach ($projects->fresh() as $project) {
-            $this->notifySelection($project);
+        foreach ($notifiableProjects as $project) {
+            $this->notifySelection($project->fresh());
         }
 
         $this->notifyJudgesReady($stream);

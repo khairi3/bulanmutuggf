@@ -77,8 +77,14 @@ class ScoringService
                 $raw = $items[$parameter->id]['score'] ?? null;
                 $score = ($raw === null || $raw === '') ? null : (float) $raw;
 
-                if ($score !== null && ($score < 0 || $score > 100)) {
-                    $errors["scores.{$parameter->id}"] = "Nilai \"{$parameter->name}\" harus antara 0 sampai 100.";
+                $minScore = (float) ($parameter->min_score ?? 0);
+                $maxScore = (float) ($parameter->max_score ?? 100);
+                if ($maxScore <= 0) {
+                    $maxScore = 100;
+                }
+
+                if ($score !== null && ($score < 0 || $score > max($maxScore, 100))) {
+                    $errors["scores.{$parameter->id}"] = "Nilai \"{$parameter->name}\" harus antara {$minScore} sampai {$maxScore}.";
                 }
 
                 if ($submit && $score === null) {

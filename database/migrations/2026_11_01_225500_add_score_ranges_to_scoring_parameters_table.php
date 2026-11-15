@@ -21,6 +21,9 @@ return new class extends Migration
             $table->decimal('follow_up_max', 5, 2)->default(3.00)->after('follow_up_min');
             $table->decimal('pass_min', 5, 2)->default(4.00)->after('follow_up_max');
             $table->decimal('pass_max', 5, 2)->default(5.00)->after('pass_min');
+            $table->string('not_pass_label')->nullable()->after('pass_max');
+            $table->string('follow_up_label')->nullable()->after('not_pass_label');
+            $table->string('pass_label')->nullable()->after('follow_up_label');
         });
 
         // Set default 1-15 range for EMI stream (Energy Management Implementation)
@@ -54,6 +57,9 @@ return new class extends Migration
                 'follow_up_max',
                 'pass_min',
                 'pass_max',
+                'not_pass_label',
+                'follow_up_label',
+                'pass_label',
             ]);
         });
     }

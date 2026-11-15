@@ -29,6 +29,9 @@ class ScoringParameter extends Model
         'follow_up_max',
         'pass_min',
         'pass_max',
+        'not_pass_label',
+        'follow_up_label',
+        'pass_label',
     ];
 
     protected function casts(): array

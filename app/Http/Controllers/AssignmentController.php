@@ -206,6 +206,25 @@ class AssignmentController extends Controller
         } else {
             $user->roles()->attach($role->id);
             $msg = "Peran {$role->name} diberikan kepada {$user->employee?->full_name}.";
+
+            // Jika user diberi peran evaluator baru (verifier/judge) namun belum punya assignment
+            // di tahap tersebut, salin assignment stream/kategori dari tahap lainnya agar langsung aktif.
+            if (in_array($role->code, [Role::VERIFIER, Role::JUDGE], true)) {
+                $targetStage = $role->code === Role::VERIFIER ? 'verification' : 'judging';
+                $hasTargetAssignments = $user->assignments()->where('stage', $targetStage)->exists();
+
+                if (! $hasTargetAssignments) {
+                    $existingAssignments = $user->assignments()->get();
+                    foreach ($existingAssignments as $asg) {
+                        Assignment::firstOrCreate([
+                            'user_id' => $user->id,
+                            'stream_id' => $asg->stream_id,
+                            'stage' => $targetStage,
+                            'category_option_id' => $asg->category_option_id,
+                        ]);
+                    }
+                }
+            }
         }
 
         AuditLog::log(

@@ -289,20 +289,31 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
 
     // Form Scoring Parameters (CFG-05)
     const currentParams = currentStream?.scoring_parameters?.filter((p) => p.stage === scoringStage) || [];
-    const mapParamObj = (p) => ({
-        id: p.id,
-        name: p.name,
-        rubric: p.rubric || '',
-        weight: parseFloat(p.weight),
-        min_score: p.min_score !== undefined && p.min_score !== null ? parseFloat(p.min_score) : 1,
-        max_score: p.max_score !== undefined && p.max_score !== null ? parseFloat(p.max_score) : (currentStream?.code === 'ENERGY' ? 15 : 5),
-        not_pass_min: p.not_pass_min !== undefined && p.not_pass_min !== null ? parseFloat(p.not_pass_min) : 1,
-        not_pass_max: p.not_pass_max !== undefined && p.not_pass_max !== null ? parseFloat(p.not_pass_max) : (currentStream?.code === 'ENERGY' ? 5 : 1),
-        follow_up_min: p.follow_up_min !== undefined && p.follow_up_min !== null ? parseFloat(p.follow_up_min) : (currentStream?.code === 'ENERGY' ? 6 : 2),
-        follow_up_max: p.follow_up_max !== undefined && p.follow_up_max !== null ? parseFloat(p.follow_up_max) : (currentStream?.code === 'ENERGY' ? 10 : 3),
-        pass_min: p.pass_min !== undefined && p.pass_min !== null ? parseFloat(p.pass_min) : (currentStream?.code === 'ENERGY' ? 11 : 4),
-        pass_max: p.pass_max !== undefined && p.pass_max !== null ? parseFloat(p.pass_max) : (currentStream?.code === 'ENERGY' ? 15 : 5),
-    });
+    const getDefaultScaleMax = (stage = scoringStage, code = currentStream?.code) => (stage === 'judging' || code === 'ENERGY' ? 15 : 5);
+    const mapParamObj = (p) => {
+        const isScale15 = p.stage === 'judging' || currentStream?.code === 'ENERGY';
+        const defaultLabels = p.stage === 'judging'
+            ? { notPass: 'Kurang', followUp: 'Baik', pass: 'Sangat Baik' }
+            : { notPass: 'Not Pass', followUp: 'Need Follow Up', pass: 'Pass' };
+
+        return {
+            id: p.id,
+            name: p.name,
+            rubric: p.rubric || '',
+            weight: parseFloat(p.weight),
+            min_score: p.min_score !== undefined && p.min_score !== null ? parseFloat(p.min_score) : 1,
+            max_score: p.max_score !== undefined && p.max_score !== null ? parseFloat(p.max_score) : (isScale15 ? 15 : 5),
+            not_pass_min: p.not_pass_min !== undefined && p.not_pass_min !== null ? parseFloat(p.not_pass_min) : 1,
+            not_pass_max: p.not_pass_max !== undefined && p.not_pass_max !== null ? parseFloat(p.not_pass_max) : (isScale15 ? 5 : 1),
+            follow_up_min: p.follow_up_min !== undefined && p.follow_up_min !== null ? parseFloat(p.follow_up_min) : (isScale15 ? 6 : 2),
+            follow_up_max: p.follow_up_max !== undefined && p.follow_up_max !== null ? parseFloat(p.follow_up_max) : (isScale15 ? 10 : 3),
+            pass_min: p.pass_min !== undefined && p.pass_min !== null ? parseFloat(p.pass_min) : (isScale15 ? 11 : 4),
+            pass_max: p.pass_max !== undefined && p.pass_max !== null ? parseFloat(p.pass_max) : (isScale15 ? 15 : 5),
+            not_pass_label: p.not_pass_label || defaultLabels.notPass,
+            follow_up_label: p.follow_up_label || defaultLabels.followUp,
+            pass_label: p.pass_label || defaultLabels.pass,
+        };
+    };
 
     const [parametersState, setParametersState] = useState(
         currentParams.length > 0
@@ -313,26 +324,32 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
                       rubric: 'Rubrik penilaian', 
                       weight: 50,
                       min_score: 1,
-                      max_score: currentStream?.code === 'ENERGY' ? 15 : 5,
+                      max_score: getDefaultScaleMax(),
                       not_pass_min: 1,
-                      not_pass_max: currentStream?.code === 'ENERGY' ? 5 : 1,
-                      follow_up_min: currentStream?.code === 'ENERGY' ? 6 : 2,
-                      follow_up_max: currentStream?.code === 'ENERGY' ? 10 : 3,
-                      pass_min: currentStream?.code === 'ENERGY' ? 11 : 4,
-                      pass_max: currentStream?.code === 'ENERGY' ? 15 : 5,
+                      not_pass_max: getDefaultScaleMax() === 15 ? 5 : 1,
+                      follow_up_min: getDefaultScaleMax() === 15 ? 6 : 2,
+                      follow_up_max: getDefaultScaleMax() === 15 ? 10 : 3,
+                      pass_min: getDefaultScaleMax() === 15 ? 11 : 4,
+                      pass_max: getDefaultScaleMax(),
+                      not_pass_label: scoringStage === 'judging' ? 'Kurang' : 'Not Pass',
+                      follow_up_label: scoringStage === 'judging' ? 'Baik' : 'Need Follow Up',
+                      pass_label: scoringStage === 'judging' ? 'Sangat Baik' : 'Pass',
                   },
                   { 
                       name: 'Efektivitas Solusi & Hasil', 
                       rubric: 'Rubrik penilaian', 
                       weight: 50,
                       min_score: 1,
-                      max_score: currentStream?.code === 'ENERGY' ? 15 : 5,
+                      max_score: getDefaultScaleMax(),
                       not_pass_min: 1,
-                      not_pass_max: currentStream?.code === 'ENERGY' ? 5 : 1,
-                      follow_up_min: currentStream?.code === 'ENERGY' ? 6 : 2,
-                      follow_up_max: currentStream?.code === 'ENERGY' ? 10 : 3,
-                      pass_min: currentStream?.code === 'ENERGY' ? 11 : 4,
-                      pass_max: currentStream?.code === 'ENERGY' ? 15 : 5,
+                      not_pass_max: getDefaultScaleMax() === 15 ? 5 : 1,
+                      follow_up_min: getDefaultScaleMax() === 15 ? 6 : 2,
+                      follow_up_max: getDefaultScaleMax() === 15 ? 10 : 3,
+                      pass_min: getDefaultScaleMax() === 15 ? 11 : 4,
+                      pass_max: getDefaultScaleMax(),
+                      not_pass_label: scoringStage === 'judging' ? 'Kurang' : 'Not Pass',
+                      follow_up_label: scoringStage === 'judging' ? 'Baik' : 'Need Follow Up',
+                      pass_label: scoringStage === 'judging' ? 'Sangat Baik' : 'Pass',
                   },
               ]
     );
@@ -1072,12 +1089,12 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
                                         <div className="pt-2 border-t border-slate-200/80 mt-2">
                                             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                                                 <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
-                                                    <span>Rentang Nilai & Kategori Status:</span>
+                                                    <span>Rentang Nilai & Keterangan Kategori:</span>
                                                     <span className="text-slate-400 font-normal">
-                                                        (Skor {param.min_score || 1} - {param.max_score || 5})
+                                                        (Skor {param.min_score || 1} - {param.max_score || 15})
                                                     </span>
                                                 </span>
-                                                <div className="flex items-center gap-1.5">
+                                                <div className="flex flex-wrap items-center gap-1.5">
                                                     <button
                                                         type="button"
                                                         onClick={() => {
@@ -1092,12 +1109,15 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
                                                                 follow_up_max: 3,
                                                                 pass_min: 4,
                                                                 pass_max: 5,
+                                                                not_pass_label: 'Not Pass',
+                                                                follow_up_label: 'Need Follow Up',
+                                                                pass_label: 'Pass',
                                                             };
                                                             setParametersState(updated);
                                                         }}
                                                         className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-200 hover:bg-slate-300 text-slate-700 transition"
                                                     >
-                                                        Preset Standar (1-5)
+                                                        Preset Verifikasi (1-5)
                                                     </button>
                                                     <button
                                                         type="button"
@@ -1113,22 +1133,36 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
                                                                 follow_up_max: 10,
                                                                 pass_min: 11,
                                                                 pass_max: 15,
+                                                                not_pass_label: scoringStage === 'judging' ? 'Kurang' : 'Not Pass',
+                                                                follow_up_label: scoringStage === 'judging' ? 'Baik' : 'Need Follow Up',
+                                                                pass_label: scoringStage === 'judging' ? 'Sangat Baik' : 'Pass',
                                                             };
                                                             setParametersState(updated);
                                                         }}
-                                                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 hover:bg-emerald-200 text-emerald-800 transition"
+                                                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-100 hover:bg-purple-200 text-purple-800 transition"
                                                     >
-                                                        Preset EMI (1-15)
+                                                        Preset Juri / EMI (1-15: Kurang / Baik / Sangat Baik)
                                                     </button>
                                                 </div>
                                             </div>
 
                                             <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
-                                                {/* Not Pass */}
-                                                <div className="p-2 rounded-lg bg-rose-50 border border-rose-200">
-                                                    <span className="block text-[10px] font-bold text-rose-800 mb-1">
-                                                        🔴 Not Pass
-                                                    </span>
+                                                {/* Kategori 1: Kurang / Not Pass */}
+                                                <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 space-y-1.5">
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-[10px]">🔴</span>
+                                                        <input
+                                                            type="text"
+                                                            value={param.not_pass_label ?? (scoringStage === 'judging' ? 'Kurang' : 'Not Pass')}
+                                                            placeholder="Label (mis: Kurang)"
+                                                            onChange={(e) => {
+                                                                const updated = [...parametersState];
+                                                                updated[idx].not_pass_label = e.target.value;
+                                                                setParametersState(updated);
+                                                            }}
+                                                            className="w-full text-[10px] font-bold text-rose-900 bg-white/80 px-1.5 py-0.5 rounded border border-rose-200 focus:outline-none focus:border-rose-400"
+                                                        />
+                                                    </div>
                                                     <div className="flex items-center gap-1">
                                                         <input
                                                             type="number"
@@ -1155,11 +1189,22 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
                                                     </div>
                                                 </div>
 
-                                                {/* Need Follow Up */}
-                                                <div className="p-2 rounded-lg bg-amber-50 border border-amber-200">
-                                                    <span className="block text-[10px] font-bold text-amber-800 mb-1">
-                                                        🟡 Need Follow Up
-                                                    </span>
+                                                {/* Kategori 2: Baik / Need Follow Up */}
+                                                <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 space-y-1.5">
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-[10px]">🟡</span>
+                                                        <input
+                                                            type="text"
+                                                            value={param.follow_up_label ?? (scoringStage === 'judging' ? 'Baik' : 'Need Follow Up')}
+                                                            placeholder="Label (mis: Baik)"
+                                                            onChange={(e) => {
+                                                                const updated = [...parametersState];
+                                                                updated[idx].follow_up_label = e.target.value;
+                                                                setParametersState(updated);
+                                                            }}
+                                                            className="w-full text-[10px] font-bold text-amber-900 bg-white/80 px-1.5 py-0.5 rounded border border-amber-200 focus:outline-none focus:border-amber-400"
+                                                        />
+                                                    </div>
                                                     <div className="flex items-center gap-1">
                                                         <input
                                                             type="number"
@@ -1185,11 +1230,22 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
                                                     </div>
                                                 </div>
 
-                                                {/* Pass */}
-                                                <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200">
-                                                    <span className="block text-[10px] font-bold text-emerald-800 mb-1">
-                                                        🟢 Pass
-                                                    </span>
+                                                {/* Kategori 3: Sangat Baik / Pass */}
+                                                <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 space-y-1.5">
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-[10px]">🟢</span>
+                                                        <input
+                                                            type="text"
+                                                            value={param.pass_label ?? (scoringStage === 'judging' ? 'Sangat Baik' : 'Pass')}
+                                                            placeholder="Label (mis: Sangat Baik)"
+                                                            onChange={(e) => {
+                                                                const updated = [...parametersState];
+                                                                updated[idx].pass_label = e.target.value;
+                                                                setParametersState(updated);
+                                                            }}
+                                                            className="w-full text-[10px] font-bold text-emerald-900 bg-white/80 px-1.5 py-0.5 rounded border border-emerald-200 focus:outline-none focus:border-emerald-400"
+                                                        />
+                                                    </div>
                                                     <div className="flex items-center gap-1">
                                                         <input
                                                             type="number"
@@ -1217,7 +1273,7 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
                                                 </div>
 
                                                 {/* Max Score */}
-                                                <div className="p-2 rounded-lg bg-slate-100 border border-slate-200">
+                                                <div className="p-2 rounded-lg bg-slate-100 border border-slate-200 flex flex-col justify-between">
                                                     <span className="block text-[10px] font-bold text-slate-700 mb-1">
                                                         Skor Maksimal
                                                     </span>
@@ -1250,13 +1306,16 @@ export default function EventsIndex({ events, selectedEvent, loginBackgroundImag
                                                 rubric: '', 
                                                 weight: 0,
                                                 min_score: 1,
-                                                max_score: currentStream?.code === 'ENERGY' ? 15 : 5,
+                                                max_score: getDefaultScaleMax(),
                                                 not_pass_min: 1,
-                                                not_pass_max: currentStream?.code === 'ENERGY' ? 5 : 1,
-                                                follow_up_min: currentStream?.code === 'ENERGY' ? 6 : 2,
-                                                follow_up_max: currentStream?.code === 'ENERGY' ? 10 : 3,
-                                                pass_min: currentStream?.code === 'ENERGY' ? 11 : 4,
-                                                pass_max: currentStream?.code === 'ENERGY' ? 15 : 5,
+                                                not_pass_max: getDefaultScaleMax() === 15 ? 5 : 1,
+                                                follow_up_min: getDefaultScaleMax() === 15 ? 6 : 2,
+                                                follow_up_max: getDefaultScaleMax() === 15 ? 10 : 3,
+                                                pass_min: getDefaultScaleMax() === 15 ? 11 : 4,
+                                                pass_max: getDefaultScaleMax(),
+                                                not_pass_label: scoringStage === 'judging' ? 'Kurang' : 'Not Pass',
+                                                follow_up_label: scoringStage === 'judging' ? 'Baik' : 'Need Follow Up',
+                                                pass_label: scoringStage === 'judging' ? 'Sangat Baik' : 'Pass',
                                             },
                                         ])
                                     }

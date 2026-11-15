@@ -30,6 +30,9 @@ class ScoringParameterController extends Controller
             'parameters.*.follow_up_max' => ['nullable', 'numeric'],
             'parameters.*.pass_min' => ['nullable', 'numeric'],
             'parameters.*.pass_max' => ['nullable', 'numeric'],
+            'parameters.*.not_pass_label' => ['nullable', 'string', 'max:100'],
+            'parameters.*.follow_up_label' => ['nullable', 'string', 'max:100'],
+            'parameters.*.pass_label' => ['nullable', 'string', 'max:100'],
         ]);
 
         $stage = $request->input('stage');
@@ -59,8 +62,11 @@ class ScoringParameterController extends Controller
                     'not_pass_max' => isset($p['not_pass_max']) && $p['not_pass_max'] !== '' ? (float) $p['not_pass_max'] : ($stream->code === Stream::CODE_ENERGY ? 5.00 : 1.00),
                     'follow_up_min' => isset($p['follow_up_min']) && $p['follow_up_min'] !== '' ? (float) $p['follow_up_min'] : ($stream->code === Stream::CODE_ENERGY ? 6.00 : 2.00),
                     'follow_up_max' => isset($p['follow_up_max']) && $p['follow_up_max'] !== '' ? (float) $p['follow_up_max'] : ($stream->code === Stream::CODE_ENERGY ? 10.00 : 3.00),
-                    'pass_min' => isset($p['pass_min']) && $p['pass_min'] !== '' ? (float) $p['pass_min'] : ($stream->code === Stream::CODE_ENERGY ? 11.00 : 4.00),
-                    'pass_max' => isset($p['pass_max']) && $p['pass_max'] !== '' ? (float) $p['pass_max'] : ($stream->code === Stream::CODE_ENERGY ? 15.00 : 5.00),
+                    'pass_min' => isset($p['pass_min']) && $p['pass_min'] !== '' ? (float) $p['pass_min'] : ($stream->code === Stream::CODE_ENERGY || $stage === 'judging' ? 11.00 : 4.00),
+                    'pass_max' => isset($p['pass_max']) && $p['pass_max'] !== '' ? (float) $p['pass_max'] : ($stream->code === Stream::CODE_ENERGY || $stage === 'judging' ? 15.00 : 5.00),
+                    'not_pass_label' => ! empty($p['not_pass_label']) ? trim($p['not_pass_label']) : ($stage === 'judging' ? 'Kurang' : 'Not Pass'),
+                    'follow_up_label' => ! empty($p['follow_up_label']) ? trim($p['follow_up_label']) : ($stage === 'judging' ? 'Baik' : 'Need Follow Up'),
+                    'pass_label' => ! empty($p['pass_label']) ? trim($p['pass_label']) : ($stage === 'judging' ? 'Sangat Baik' : 'Pass'),
                 ]);
             }
 
