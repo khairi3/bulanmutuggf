@@ -1033,10 +1033,10 @@ export default function ProjectShow({ project }) {
                     <div>
                         <label className="block text-sm font-semibold text-slate-800 mb-1.5">
                             {uploadCategory === 'final_presentation'
-                                ? 'Pilih Berkas Presentasi (Format PDF Sangat Disarankan, Maks. 100 MB)'
+                                ? 'Pilih Berkas Presentasi (Format PDF Sangat Disarankan, Maks. 50 MB)'
                                 : uploadCategory === 'final_video'
                                     ? 'Pilih Berkas Video (MP4 / WebM, Maks. 100 MB)'
-                                    : 'Pilih Berkas Komputer/HP (Maks. 100 MB)'}
+                                    : 'Pilih Berkas Komputer/HP (Maks. 50 MB)'}
                         </label>
                         <input
                             key={uploadCategory}

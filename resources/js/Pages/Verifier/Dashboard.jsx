@@ -24,11 +24,78 @@ import {
     Sparkles,
     ChevronRight,
     TrendingUp,
-    Trash2
+    Trash2,
+    Layers,
+    Zap,
+    ShieldCheck
 } from 'lucide-react';
 import DeleteProjectModal from '@/Components/DeleteProjectModal';
 
-export default function VerifierDashboard({ stats = { total: 0, unverified: 0, verified: 0 }, projects, streams = [], filters = {} }) {
+const GROUP_DEFINITIONS = [
+    {
+        key: 'CIC_BEGINNER',
+        title: 'CIC — Beginner',
+        shortTitle: 'CIC Beginner',
+        subtitle: 'Continuous Improvement Convention · Level Kemahiran Beginner',
+        streamCode: 'CIC',
+        levelName: 'Beginner',
+        badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+        headerBg: 'from-emerald-50/90 to-white border-emerald-200',
+        iconBg: 'bg-emerald-600 text-white',
+    },
+    {
+        key: 'CIC_MIDDLE',
+        title: 'CIC — Middle',
+        shortTitle: 'CIC Middle',
+        subtitle: 'Continuous Improvement Convention · Level Kemahiran Middle',
+        streamCode: 'CIC',
+        levelName: 'Middle',
+        badgeClass: 'bg-teal-50 text-teal-800 border-teal-200',
+        headerBg: 'from-teal-50/90 to-white border-teal-200',
+        iconBg: 'bg-teal-600 text-white',
+    },
+    {
+        key: 'CIC_ADVANCE',
+        title: 'CIC — Advance',
+        shortTitle: 'CIC Advance',
+        subtitle: 'Continuous Improvement Convention · Level Kemahiran Advance',
+        streamCode: 'CIC',
+        levelName: 'Advance',
+        badgeClass: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+        headerBg: 'from-indigo-50/90 to-white border-indigo-200',
+        iconBg: 'bg-indigo-600 text-white',
+    },
+    {
+        key: 'ENERGY',
+        title: 'EMI (Energy Management Implementation)',
+        shortTitle: 'EMI',
+        subtitle: 'Energy Management Implementation Award',
+        streamCode: 'ENERGY',
+        levelName: null,
+        badgeClass: 'bg-blue-50 text-blue-800 border-blue-200',
+        headerBg: 'from-blue-50/90 to-white border-blue-200',
+        iconBg: 'bg-blue-600 text-white',
+    },
+    {
+        key: 'K3',
+        title: 'Bulan K3 (Keselamatan & Kesehatan Kerja)',
+        shortTitle: 'K3',
+        subtitle: 'Safety Improvement Action Plan (SIGAP)',
+        streamCode: 'K3',
+        levelName: null,
+        badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+        headerBg: 'from-amber-50/90 to-white border-amber-200',
+        iconBg: 'bg-amber-600 text-white',
+    },
+];
+
+export default function VerifierDashboard({
+    stats = { total: 0, unverified: 0, verified: 0 },
+    groupCounts = {},
+    projects,
+    streams = [],
+    filters = {},
+}) {
     const { auth } = usePage().props;
     const employee = auth?.user?.employee;
 
@@ -38,6 +105,114 @@ export default function VerifierDashboard({ stats = { total: 0, unverified: 0, v
     const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
     const [projectToDelete, setProjectToDelete] = useState(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+    // Determine currently active category pill based on filters.stream_id & filters.category_option_id
+    const activeGroupPill = React.useMemo(() => {
+        if (!filters?.stream_id) return 'ALL';
+        const s = streams.find((st) => String(st.id) === String(filters.stream_id));
+        if (!s) return 'ALL';
+
+        if (s.code === 'ENERGY') return 'ENERGY';
+        if (s.code === 'K3') return 'K3';
+        if (s.code === 'CIC') {
+            if (!filters?.category_option_id) return 'CIC_ALL';
+            const allOptions = s.category_dimensions?.flatMap((d) => d.options || []) || [];
+            const matchedOpt = allOptions.find((o) => String(o.id) === String(filters.category_option_id));
+            const optName = matchedOpt?.name?.toUpperCase() || '';
+            if (optName === 'BEGINNER') return 'CIC_BEGINNER';
+            if (optName === 'MIDDLE') return 'CIC_MIDDLE';
+            if (optName === 'ADVANCE' || optName === 'ADVANCED') return 'CIC_ADVANCE';
+            return 'CIC_ALL';
+        }
+        return 'ALL';
+    }, [filters?.stream_id, filters?.category_option_id, streams]);
+
+    const handleSelectCategoryPill = (groupKey) => {
+        if (groupKey === 'ALL') {
+            setSelectedStream('');
+            router.get(
+                '/verifier/dashboard',
+                {
+                    ...filters,
+                    stream_id: undefined,
+                    category_option_id: undefined,
+                    page: 1,
+                },
+                { preserveState: true, preserveScroll: true }
+            );
+            return;
+        }
+
+        const def = GROUP_DEFINITIONS.find((g) => g.key === groupKey);
+        if (!def) return;
+
+        const targetStream = streams.find((s) => s.code === def.streamCode);
+        if (!targetStream) return;
+
+        let targetOptionId = undefined;
+        if (def.levelName) {
+            const allOptions = targetStream.category_dimensions?.flatMap((d) => d.options || []) || [];
+            const matchedOpt = allOptions.find(
+                (o) => o.name?.toLowerCase() === def.levelName.toLowerCase()
+            );
+            targetOptionId = matchedOpt?.id;
+        }
+
+        setSelectedStream(String(targetStream.id));
+        router.get(
+            '/verifier/dashboard',
+            {
+                ...filters,
+                stream_id: targetStream.id,
+                category_option_id: targetOptionId,
+                page: 1,
+            },
+            { preserveState: true, preserveScroll: true }
+        );
+    };
+
+    // Group current projects.data into the requested categories
+    const categorizedSections = React.useMemo(() => {
+        const items = projects?.data || [];
+        if (items.length === 0) return [];
+
+        const map = {};
+        GROUP_DEFINITIONS.forEach((def) => {
+            map[def.key] = { ...def, projects: [] };
+        });
+
+        const fallbackGroups = {};
+
+        items.forEach((p) => {
+            let key = p.group_key;
+            if (key === 'CIC_ADVANCED') key = 'CIC_ADVANCE';
+
+            if (map[key]) {
+                map[key].projects.push(p);
+            } else {
+                const fbKey = key || 'OTHER';
+                if (!fallbackGroups[fbKey]) {
+                    fallbackGroups[fbKey] = {
+                        key: fbKey,
+                        title: p.group_label || p.stream_name || 'Kategori Lainnya',
+                        shortTitle: p.stream_code || 'Lainnya',
+                        subtitle: p.stream_name || 'Project Terdaftar',
+                        badgeClass: 'bg-slate-100 text-slate-800 border-slate-200',
+                        headerBg: 'from-slate-50 to-white border-slate-200',
+                        iconBg: 'bg-slate-700 text-white',
+                        projects: [],
+                    };
+                }
+                fallbackGroups[fbKey].projects.push(p);
+            }
+        });
+
+        const ordered = GROUP_DEFINITIONS.map((def) => map[def.key]).filter(
+            (section) => section.projects.length > 0
+        );
+
+        return [...ordered, ...Object.values(fallbackGroups)];
+    }, [projects?.data]);
 
     const handleOpenDeleteModal = (project) => {
         setProjectToDelete(project);
@@ -78,6 +253,19 @@ export default function VerifierDashboard({ stats = { total: 0, unverified: 0, v
     const renderVerificationBadge = (p) => {
         if (p.my_score_status === 'submitted') {
             const scoreVal = parseFloat(p.my_score || 0);
+            if (p.stream_code === 'ENERGY') {
+                return (
+                    <div className="flex flex-col gap-0.5">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300 w-fit">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Selesai Dinilai</span>
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono pl-1">
+                            Skor: {scoreVal.toFixed(2)} / 15.0
+                        </span>
+                    </div>
+                );
+            }
             const isScale5 = scoreVal <= 5.0;
             const isScale15 = scoreVal > 5.0 && scoreVal <= 15.0;
             const isPass = isScale15 ? scoreVal >= 11.0 : (isScale5 ? scoreVal >= 4.0 : scoreVal >= 85);
@@ -216,6 +404,123 @@ export default function VerifierDashboard({ stats = { total: 0, unverified: 0, v
             <Head title="Dashboard Verifikator - Bulan Mutu GGF" />
 
             <div className="space-y-6">
+                {/* Category Quick Filter Tabs: CIC (Beginner, Middle, Advance), EMI, K3 */}
+                <div className="bg-white rounded-3xl border border-slate-200 p-3.5 sm:p-4 shadow-xs">
+                    <div className="flex items-center justify-between mb-2.5 px-1">
+                        <span className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                            <Layers className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Kategorisasi Project Submitted</span>
+                        </span>
+                        <span className="text-[11px] text-slate-400">
+                            Pilih kategori untuk memfilter daftar project
+                        </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => handleSelectCategoryPill('ALL')}
+                            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                activeGroupPill === 'ALL'
+                                    ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                            }`}
+                        >
+                            <span>Semua Kategori</span>
+                            <span
+                                className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${
+                                    activeGroupPill === 'ALL'
+                                        ? 'bg-white/20 text-white'
+                                        : 'bg-slate-200/80 text-slate-700'
+                                }`}
+                            >
+                                {groupCounts?.ALL ?? stats.total}
+                            </span>
+                        </button>
+
+                        {/* CIC Sub-group */}
+                        <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-emerald-50/60 border border-emerald-200/80">
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 px-2">
+                                CIC:
+                            </span>
+                            {['CIC_BEGINNER', 'CIC_MIDDLE', 'CIC_ADVANCE'].map((gKey) => {
+                                const def = GROUP_DEFINITIONS.find((g) => g.key === gKey);
+                                const isActive = activeGroupPill === gKey;
+                                const count = groupCounts?.[gKey] ?? 0;
+                                return (
+                                    <button
+                                        key={gKey}
+                                        type="button"
+                                        onClick={() => handleSelectCategoryPill(gKey)}
+                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                                            isActive
+                                                ? 'bg-emerald-600 text-white shadow-xs'
+                                                : 'bg-white text-slate-700 hover:bg-emerald-100/60 border border-emerald-200/60'
+                                        }`}
+                                    >
+                                        <span>{def.levelName}</span>
+                                        <span
+                                            className={`px-1.5 py-0.2 rounded-md text-[10px] font-extrabold ${
+                                                isActive
+                                                    ? 'bg-white/20 text-white'
+                                                    : 'bg-emerald-50 text-emerald-800'
+                                            }`}
+                                        >
+                                            {count}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* EMI Pill */}
+                        <button
+                            type="button"
+                            onClick={() => handleSelectCategoryPill('ENERGY')}
+                            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                activeGroupPill === 'ENERGY'
+                                    ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                                    : 'bg-blue-50/60 text-blue-900 border-blue-200 hover:bg-blue-100/70'
+                            }`}
+                        >
+                            <Zap className="w-3.5 h-3.5" />
+                            <span>EMI</span>
+                            <span
+                                className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${
+                                    activeGroupPill === 'ENERGY'
+                                        ? 'bg-white/20 text-white'
+                                        : 'bg-blue-100 text-blue-800'
+                                }`}
+                            >
+                                {groupCounts?.ENERGY ?? 0}
+                            </span>
+                        </button>
+
+                        {/* K3 Pill */}
+                        <button
+                            type="button"
+                            onClick={() => handleSelectCategoryPill('K3')}
+                            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                activeGroupPill === 'K3'
+                                    ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                                    : 'bg-amber-50/60 text-amber-900 border-amber-200 hover:bg-amber-100/70'
+                            }`}
+                        >
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <span>K3</span>
+                            <span
+                                className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${
+                                    activeGroupPill === 'K3'
+                                        ? 'bg-white/20 text-white'
+                                        : 'bg-amber-100 text-amber-800'
+                                }`}
+                            >
+                                {groupCounts?.K3 ?? 0}
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
                 {/* Search, Filter & View Toggle Bar */}
                 <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-2 max-w-lg">
@@ -240,7 +545,16 @@ export default function VerifierDashboard({ stats = { total: 0, unverified: 0, v
                             value={selectedStream}
                             onChange={(e) => {
                                 setSelectedStream(e.target.value);
-                                handleFilterChange('stream_id', e.target.value);
+                                router.get(
+                                    '/verifier/dashboard',
+                                    {
+                                        ...filters,
+                                        stream_id: e.target.value || undefined,
+                                        category_option_id: undefined,
+                                        page: 1,
+                                    },
+                                    { preserveState: true, preserveScroll: true }
+                                );
                             }}
                             className="text-xs rounded-xl border border-slate-300 py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500 bg-white text-slate-700 font-medium"
                         >
@@ -269,7 +583,7 @@ export default function VerifierDashboard({ stats = { total: 0, unverified: 0, v
                             <option value="not_qualified">Tidak Lolos</option>
                         </select>
 
-                        {(filters?.search || filters?.stream_id || filters?.status) && (
+                        {(filters?.search || filters?.stream_id || filters?.status || filters?.category_option_id) && (
                             <button
                                 type="button"
                                 onClick={() => {
@@ -316,7 +630,7 @@ export default function VerifierDashboard({ stats = { total: 0, unverified: 0, v
                     </div>
                 </div>
 
-                {/* Content: Card Grid View or Table View */}
+                {/* Content: Categorized Card Grid View or Categorized Table View */}
                 {projects.data.length === 0 ? (
                     <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center shadow-xs">
                         <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
@@ -324,190 +638,309 @@ export default function VerifierDashboard({ stats = { total: 0, unverified: 0, v
                         </div>
                         <h4 className="font-bold text-slate-800 text-base">Tidak Ada Project yang Sesuai</h4>
                         <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
-                            Belum ada project yang diajukan pada stream penugasan Anda atau kriteria filter saat ini tidak menghasilkan data.
+                            Belum ada project yang diajukan pada kategori/stream penugasan ini atau kriteria filter saat ini tidak menghasilkan data.
                         </p>
                     </div>
                 ) : viewMode === 'grid' ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {projects.data.map((p) => (
-                            <div
-                                key={p.id}
-                                className="bg-white rounded-3xl border border-slate-200 hover:border-emerald-400 shadow-xs hover:shadow-md transition-all duration-300 p-6 flex flex-col justify-between group"
-                            >
-                                <div>
-                                    {/* Top Row: Code, Stream & Project Status */}
-                                    <div className="flex items-center justify-between gap-2 mb-3">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-mono text-xs font-extrabold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
-                                                {p.registration_code}
-                                            </span>
-                                            <Badge status={p.status} />
-                                        </div>
-                                        <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200/80">
-                                            {p.stream_name}
-                                        </span>
-                                    </div>
+                    <div className="space-y-8">
+                        {categorizedSections.map((section) => {
+                            const verifiedInSection = section.projects.filter(
+                                (p) => p.my_score_status === 'submitted'
+                            ).length;
 
-                                    {/* Title */}
-                                    <Link
-                                        href={`/verifier/projects/${p.id}`}
-                                        className="font-black text-base sm:text-lg text-slate-900 group-hover:text-emerald-700 transition-colors line-clamp-2 leading-snug"
+                            return (
+                                <div key={section.key} className="space-y-4">
+                                    {/* Section Group Header */}
+                                    <div
+                                        className={`bg-gradient-to-r ${section.headerBg} rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-2xs`}
                                     >
-                                        {p.title}
-                                    </Link>
+                                        <div className="flex items-center gap-3">
+                                            <div
+                                                className={`w-10 h-10 rounded-xl ${section.iconBg} flex items-center justify-center font-black text-xs shadow-xs shrink-0`}
+                                            >
+                                                {section.shortTitle?.slice(0, 3).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="font-black text-slate-900 text-base">
+                                                        {section.title}
+                                                    </h3>
+                                                    <span
+                                                        className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${section.badgeClass}`}
+                                                    >
+                                                        {section.projects.length} Project
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-slate-500 mt-0.5">
+                                                    {section.subtitle}
+                                                </p>
+                                            </div>
+                                        </div>
 
-                                    {/* Team & Unit Details */}
-                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-slate-500 mt-2.5">
-                                        <span className="flex items-center gap-1 font-semibold text-slate-700">
-                                            <Users className="w-3.5 h-3.5 text-slate-400" />
-                                            {p.leader_name}
-                                        </span>
-                                        <span>·</span>
-                                        <span className="flex items-center gap-1 text-slate-500">
-                                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                                            {p.unit || 'Unit GGF'}
-                                        </span>
+                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                                            <span className="px-3 py-1 rounded-xl bg-white border border-slate-200/80 shadow-2xs">
+                                                Selesai Diverifikasi:{' '}
+                                                <strong className="text-emerald-700">
+                                                    {verifiedInSection}
+                                                </strong>{' '}
+                                                / {section.projects.length}
+                                            </span>
+                                        </div>
                                     </div>
 
-                                    {/* Categories Tags */}
-                                    {p.categories?.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 mt-3">
-                                            {p.categories.map((c, i) => (
-                                                <span key={i} className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium">
-                                                    {c}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
+                                    {/* Projects Cards in this Category */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                        {section.projects.map((p) => (
+                                            <div
+                                                key={p.id}
+                                                className="bg-white rounded-3xl border border-slate-200 hover:border-emerald-400 shadow-xs hover:shadow-md transition-all duration-300 p-6 flex flex-col justify-between group"
+                                            >
+                                                <div>
+                                                    {/* Top Row: Code, Stream & Project Status */}
+                                                    <div className="flex items-center justify-between gap-2 mb-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-mono text-xs font-extrabold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
+                                                                {p.registration_code}
+                                                            </span>
+                                                            <Badge status={p.status} />
+                                                        </div>
+                                                        <span
+                                                            className={`text-[11px] font-bold px-2.5 py-0.5 rounded-lg border ${section.badgeClass}`}
+                                                        >
+                                                            {section.shortTitle}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Title */}
+                                                    <Link
+                                                        href={`/verifier/projects/${p.id}`}
+                                                        className="font-black text-base sm:text-lg text-slate-900 group-hover:text-emerald-700 transition-colors line-clamp-2 leading-snug"
+                                                    >
+                                                        {p.title}
+                                                    </Link>
+
+                                                    {/* Team & Unit Details */}
+                                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-slate-500 mt-2.5">
+                                                        <span className="flex items-center gap-1 font-semibold text-slate-700">
+                                                            <Users className="w-3.5 h-3.5 text-slate-400" />
+                                                            {p.leader_name}
+                                                        </span>
+                                                        <span>·</span>
+                                                        <span className="flex items-center gap-1 text-slate-500">
+                                                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                                                            {p.unit || 'Unit GGF'}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Categories Tags */}
+                                                    {p.categories?.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1 mt-3">
+                                                            {p.categories.map((c, i) => (
+                                                                <span
+                                                                    key={i}
+                                                                    className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium"
+                                                                >
+                                                                    {c}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Card Footer: Verification Score & Action CTA */}
+                                                <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
+                                                    <div>
+                                                        <span className="text-[11px] text-slate-400 block mb-0.5 font-medium">
+                                                            Hasil Verifikasi:
+                                                        </span>
+                                                        {renderVerificationBadge(p)}
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleOpenDeleteModal(p)}
+                                                            className="p-2 rounded-xl text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition shadow-2xs"
+                                                            title="Hapus Project & Kirim Alasan"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+
+                                                        <Link
+                                                            href={`/verifier/projects/${p.id}`}
+                                                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-emerald-700 transition shadow-xs"
+                                                        >
+                                                            <span>
+                                                                {p.my_score_status === 'submitted'
+                                                                    ? 'Review Penilaian'
+                                                                    : 'Mulai Verifikasi'}
+                                                            </span>
+                                                            <ChevronRight className="w-3.5 h-3.5" />
+                                                        </Link>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        {categorizedSections.map((section) => (
+                            <div
+                                key={section.key}
+                                className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs"
+                            >
+                                {/* Table Section Header */}
+                                <div
+                                    className={`px-5 py-3.5 bg-gradient-to-r ${section.headerBg} border-b flex items-center justify-between`}
+                                >
+                                    <div className="flex items-center gap-2.5">
+                                        <span
+                                            className={`w-7 h-7 rounded-lg ${section.iconBg} flex items-center justify-center font-black text-[10px]`}
+                                        >
+                                            {section.shortTitle?.slice(0, 3).toUpperCase()}
+                                        </span>
+                                        <h3 className="font-black text-slate-900 text-sm">
+                                            {section.title}
+                                        </h3>
+                                        <span
+                                            className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${section.badgeClass}`}
+                                        >
+                                            {section.projects.length} Project
+                                        </span>
+                                    </div>
+                                    <span className="text-xs text-slate-500 hidden sm:inline">
+                                        {section.subtitle}
+                                    </span>
                                 </div>
 
-                                {/* Card Footer: Verification Score & Action CTA */}
-                                <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
-                                    <div>
-                                        <span className="text-[11px] text-slate-400 block mb-0.5 font-medium">Hasil Verifikasi:</span>
-                                        {renderVerificationBadge(p)}
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => handleOpenDeleteModal(p)}
-                                            className="p-2 rounded-xl text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition shadow-2xs"
-                                            title="Hapus Project & Kirim Alasan"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-
-                                        <Link
-                                            href={`/verifier/projects/${p.id}`}
-                                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-emerald-700 transition shadow-xs"
-                                        >
-                                            <span>{p.my_score_status === 'submitted' ? 'Review Penilaian' : 'Mulai Verifikasi'}</span>
-                                            <ChevronRight className="w-3.5 h-3.5" />
-                                        </Link>
-                                    </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse text-xs">
+                                        <thead>
+                                            <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                                                <th
+                                                    className="py-3.5 px-4 cursor-pointer hover:bg-slate-100"
+                                                    onClick={() => handleSort('registration_code')}
+                                                >
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span>Kode Registrasi</span>
+                                                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                                                    </div>
+                                                </th>
+                                                <th
+                                                    className="py-3.5 px-4 cursor-pointer hover:bg-slate-100"
+                                                    onClick={() => handleSort('title')}
+                                                >
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span>Judul Project</span>
+                                                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                                                    </div>
+                                                </th>
+                                                <th className="py-3.5 px-4">Stream & Kategori</th>
+                                                <th className="py-3.5 px-4">Ketua & Unit</th>
+                                                <th
+                                                    className="py-3.5 px-4 cursor-pointer hover:bg-slate-100"
+                                                    onClick={() => handleSort('status')}
+                                                >
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span>Status Project</span>
+                                                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                                                    </div>
+                                                </th>
+                                                <th className="py-3.5 px-4">Status Verifikasi</th>
+                                                <th className="py-3.5 px-4 text-right">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 bg-white">
+                                            {section.projects.map((p) => (
+                                                <tr
+                                                    key={p.id}
+                                                    className="hover:bg-slate-50/80 transition-colors"
+                                                >
+                                                    <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                                                        <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">
+                                                            {p.registration_code}
+                                                        </span>
+                                                    </td>
+                                                    <td
+                                                        className="py-3 px-4 font-semibold text-slate-800 max-w-xs truncate"
+                                                        title={p.title}
+                                                    >
+                                                        <Link
+                                                            href={`/verifier/projects/${p.id}`}
+                                                            className="hover:text-emerald-700 hover:underline"
+                                                        >
+                                                            {p.title}
+                                                        </Link>
+                                                        <div className="text-[11px] text-slate-400 font-normal mt-0.5">
+                                                            Diajukan: {p.submitted_at || '-'}
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-3 px-4">
+                                                        <span className="font-semibold text-slate-700">
+                                                            {p.stream_name}
+                                                        </span>
+                                                        {p.categories?.length > 0 && (
+                                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                                {p.categories.map((c, i) => (
+                                                                    <span
+                                                                        key={i}
+                                                                        className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-medium"
+                                                                    >
+                                                                        {c}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-3 px-4">
+                                                        <div className="font-medium text-slate-900">
+                                                            {p.leader_name}
+                                                        </div>
+                                                        <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                                                            <Building2 className="w-3 h-3" />
+                                                            <span>{p.unit || 'Unit GGF'}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-3 px-4">
+                                                        <Badge status={p.status} />
+                                                    </td>
+                                                    <td className="py-3 px-4">
+                                                        {renderVerificationBadge(p)}
+                                                    </td>
+                                                    <td className="py-3 px-4 text-right">
+                                                        <div className="inline-flex items-center gap-1.5 justify-end">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenDeleteModal(p)}
+                                                                className="p-1.5 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition"
+                                                                title="Hapus Project & Kirim Alasan"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            <Link
+                                                                href={`/verifier/projects/${p.id}`}
+                                                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white hover:bg-emerald-700 transition-colors shadow-xs"
+                                                            >
+                                                                <span>
+                                                                    {p.my_score_status === 'submitted'
+                                                                        ? 'Review'
+                                                                        : 'Verifikasi'}
+                                                                </span>
+                                                                <ExternalLink className="w-3 h-3" />
+                                                            </Link>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         ))}
-                    </div>
-                ) : (
-                    <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse text-xs">
-                                <thead>
-                                    <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
-                                        <th className="py-3.5 px-4 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('registration_code')}>
-                                            <div className="flex items-center gap-1.5">
-                                                <span>Kode Registrasi</span>
-                                                <ArrowUpDown className="w-3 h-3 text-slate-400" />
-                                            </div>
-                                        </th>
-                                        <th className="py-3.5 px-4 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('title')}>
-                                            <div className="flex items-center gap-1.5">
-                                                <span>Judul Project</span>
-                                                <ArrowUpDown className="w-3 h-3 text-slate-400" />
-                                            </div>
-                                        </th>
-                                        <th className="py-3.5 px-4">Stream & Kategori</th>
-                                        <th className="py-3.5 px-4">Ketua & Unit</th>
-                                        <th className="py-3.5 px-4 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('status')}>
-                                            <div className="flex items-center gap-1.5">
-                                                <span>Status Project</span>
-                                                <ArrowUpDown className="w-3 h-3 text-slate-400" />
-                                            </div>
-                                        </th>
-                                        <th className="py-3.5 px-4">Status Verifikasi</th>
-                                        <th className="py-3.5 px-4 text-right">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 bg-white">
-                                    {projects.data.map((p) => (
-                                        <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
-                                            <td className="py-3 px-4 font-mono font-bold text-slate-900">
-                                                <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">
-                                                    {p.registration_code}
-                                                </span>
-                                            </td>
-                                            <td className="py-3 px-4 font-semibold text-slate-800 max-w-xs truncate" title={p.title}>
-                                                <Link 
-                                                    href={`/verifier/projects/${p.id}`}
-                                                    className="hover:text-emerald-700 hover:underline"
-                                                >
-                                                    {p.title}
-                                                </Link>
-                                                <div className="text-[11px] text-slate-400 font-normal mt-0.5">
-                                                    Diajukan: {p.submitted_at || '-'}
-                                                </div>
-                                            </td>
-                                            <td className="py-3 px-4">
-                                                <span className="font-semibold text-slate-700">{p.stream_name}</span>
-                                                {p.categories?.length > 0 && (
-                                                    <div className="flex flex-wrap gap-1 mt-1">
-                                                        {p.categories.map((c, i) => (
-                                                            <span key={i} className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-medium">
-                                                                {c}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="py-3 px-4">
-                                                <div className="font-medium text-slate-900">{p.leader_name}</div>
-                                                <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-                                                    <Building2 className="w-3 h-3" />
-                                                    <span>{p.unit || 'Unit GGF'}</span>
-                                                </div>
-                                            </td>
-                                            <td className="py-3 px-4">
-                                                <Badge status={p.status} />
-                                            </td>
-                                            <td className="py-3 px-4">
-                                                {renderVerificationBadge(p)}
-                                            </td>
-                                            <td className="py-3 px-4 text-right">
-                                                <div className="inline-flex items-center gap-1.5 justify-end">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleOpenDeleteModal(p)}
-                                                        className="p-1.5 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition"
-                                                        title="Hapus Project & Kirim Alasan"
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    </button>
-                                                    <Link
-                                                        href={`/verifier/projects/${p.id}`}
-                                                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white hover:bg-emerald-700 transition-colors shadow-xs"
-                                                    >
-                                                        <span>{p.my_score_status === 'submitted' ? 'Review' : 'Verifikasi'}</span>
-                                                        <ExternalLink className="w-3 h-3" />
-                                                    </Link>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
                     </div>
                 )}
 

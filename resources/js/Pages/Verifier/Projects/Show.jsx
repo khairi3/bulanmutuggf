@@ -92,6 +92,7 @@ export default function VerifierProjectShow({
     const [selectedVersion, setSelectedVersion] = useState(null);
 
     const isScoreLocked = myScoreSheet?.status === 'submitted';
+    const isDirectScoreStream = project?.stream?.code === 'ENERGY';
 
     // 1. Scoring Form State (Quantification: Pass = 5, Need Follow Up = 3, Not Pass = 1)
     const initialScores = useMemo(() => {
@@ -107,6 +108,7 @@ export default function VerifierProjectShow({
     }, [scoringParameters, myScoreSheet]);
 
     const [scores, setScores] = useState(initialScores);
+    const [hoveredScore, setHoveredScore] = useState({});
 
     const getParamRanges = (param) => {
         const isEnergy = project?.stream?.code === 'ENERGY';
@@ -533,7 +535,19 @@ export default function VerifierProjectShow({
                                                 </div>
 
                                                 <div className="text-right shrink-0">
-                                                    {isPass ? (
+                                                    {isDirectScoreStream ? (
+                                                        rawScore !== null && rawScore !== undefined && rawScore !== '' ? (
+                                                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-2xl bg-slate-900 text-white shadow-xs">
+                                                                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Skor</span>
+                                                                <span className="text-sm font-black font-mono text-emerald-400">{rawScore}</span>
+                                                                <span className="text-[10px] text-slate-500 font-mono">/ {ranges.maxScore}</span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 text-slate-400">
+                                                                Belum Dinilai
+                                                            </span>
+                                                        )
+                                                    ) : isPass ? (
                                                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                                                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                                                             <span>{ranges.passLabel} (Skor: {rawScore})</span>
@@ -556,151 +570,303 @@ export default function VerifierProjectShow({
                                                 </div>
                                             </div>
 
-                                            {/* 3 Status Choice Cards (Pass / Need Follow Up / Not Pass) */}
+                                            {/* Scoring Input Area: Direct 1-15 for EMI vs 3 Categories for other streams */}
                                             <div className="mt-4 pt-3.5 border-t border-slate-100 pl-8">
-                                                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                                                    Pilih Kategori Status Lapangan & Skor Kuantifikasi:
-                                                </div>
-                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                                                    {/* PASS */}
-                                                    <button
-                                                        type="button"
-                                                        disabled={isScoreLocked}
-                                                        onClick={() => handleScoreChange(param.id, ranges.passMax)}
-                                                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
-                                                            isPass
-                                                                ? 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
-                                                                : 'bg-white border-slate-200 hover:border-emerald-300 hover:bg-slate-50/80'
-                                                        } ${isScoreLocked ? 'cursor-not-allowed opacity-75' : ''}`}
-                                                    >
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-xs font-black text-emerald-800 flex items-center gap-1.5">
-                                                                <span className={`w-2.5 h-2.5 rounded-full ${isPass ? 'bg-emerald-500 ring-2 ring-emerald-300' : 'bg-slate-300'}`} />
-                                                                {ranges.passLabel}
-                                                            </span>
-                                                            <div className="flex items-center gap-1.5">
-                                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300 font-mono">
-                                                                    {ranges.passMin === ranges.passMax ? `Skor: ${ranges.passMax}` : `Range: ${ranges.passMin}-${ranges.passMax}`}
-                                                                </span>
-                                                                {isPass && (
-                                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-600 text-white">
-                                                                        Terpilih
+                                                {isDirectScoreStream ? (
+                                                    (() => {
+                                                        const totalSteps = Math.max(1, Math.round(ranges.maxScore - ranges.minScore + 1));
+                                                        const numbers = Array.from({ length: totalSteps }, (_, i) => Math.round(ranges.minScore) + i);
+                                                        const currentHover = hoveredScore[param.id] ?? null;
+                                                        const numericSelected =
+                                                            rawScore !== null && rawScore !== undefined && rawScore !== '' && !isNaN(Number(rawScore))
+                                                                ? Number(rawScore)
+                                                                : null;
+                                                        const activeValue = currentHover !== null ? currentHover : numericSelected;
+                                                        const weightedVal =
+                                                            activeValue !== null
+                                                                ? ((activeValue * parseFloat(param.weight || 0)) / 100).toFixed(2)
+                                                                : '0.00';
+
+                                                        const getSegmentStyle = (num) => {
+                                                            const isExact = numericSelected === num;
+                                                            const isFilled = activeValue !== null && num <= activeValue;
+                                                            const ratio = (num - ranges.minScore) / Math.max(1, ranges.maxScore - ranges.minScore);
+
+                                                            if (isExact) {
+                                                                if (ratio < 0.34) {
+                                                                    return 'bg-amber-500 text-white shadow-md shadow-amber-500/25 scale-110 z-10 ring-2 ring-white font-black';
+                                                                }
+                                                                if (ratio < 0.67) {
+                                                                    return 'bg-teal-600 text-white shadow-md shadow-teal-600/25 scale-110 z-10 ring-2 ring-white font-black';
+                                                                }
+                                                                return 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25 scale-110 z-10 ring-2 ring-white font-black';
+                                                            }
+
+                                                            if (isFilled) {
+                                                                if (ratio < 0.34) {
+                                                                    return 'bg-amber-100/90 text-amber-900 font-bold';
+                                                                }
+                                                                if (ratio < 0.67) {
+                                                                    return 'bg-teal-100/90 text-teal-900 font-bold';
+                                                                }
+                                                                return 'bg-emerald-100/90 text-emerald-950 font-bold';
+                                                            }
+
+                                                            return 'bg-transparent text-slate-500 hover:text-slate-900 hover:bg-white/70 font-semibold';
+                                                        };
+
+                                                        return (
+                                                            <div className="space-y-2.5">
+                                                                {/* Minimalist Header Info */}
+                                                                <div className="flex items-center justify-between text-[11px]">
+                                                                    <div className="flex items-center gap-2 text-slate-500">
+                                                                        <span className="font-semibold text-slate-700">Skala Skor</span>
+                                                                        <span className="text-slate-300">•</span>
+                                                                        <span>Bobot {param.weight}%</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-slate-400">
+                                                                            Kontribusi:{' '}
+                                                                            <strong className="text-slate-800 font-mono">+{weightedVal}</strong>
+                                                                        </span>
+                                                                        {numericSelected !== null && !isScoreLocked && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleScoreChange(param.id, null)}
+                                                                                className="text-[10px] text-slate-400 hover:text-rose-600 underline ml-1 cursor-pointer"
+                                                                            >
+                                                                                Reset
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Interactive Minimalist Segmented Track (1 - 15) */}
+                                                                <div
+                                                                    className="p-1.5 rounded-2xl bg-slate-100/90 border border-slate-200/80 flex items-center gap-1 select-none"
+                                                                    onMouseLeave={() =>
+                                                                        setHoveredScore((prev) => ({ ...prev, [param.id]: null }))
+                                                                    }
+                                                                >
+                                                                    {/* Decrement Stepper */}
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={
+                                                                            isScoreLocked ||
+                                                                            (numericSelected !== null && numericSelected <= ranges.minScore)
+                                                                        }
+                                                                        onClick={() => {
+                                                                            const next =
+                                                                                numericSelected === null
+                                                                                    ? ranges.minScore
+                                                                                    : Math.max(ranges.minScore, numericSelected - 1);
+                                                                            handleScoreChange(param.id, next);
+                                                                        }}
+                                                                        className="w-7 h-8 rounded-xl bg-white hover:bg-slate-50 text-slate-600 border border-slate-200/80 flex items-center justify-center text-xs font-bold transition disabled:opacity-35 cursor-pointer shrink-0 shadow-2xs"
+                                                                        title="Kurangi 1 poin"
+                                                                    >
+                                                                        −
+                                                                    </button>
+
+                                                                    {/* 1..15 Pill Segments */}
+                                                                    <div
+                                                                        className="flex-1 grid gap-1"
+                                                                        style={{
+                                                                            gridTemplateColumns: `repeat(${totalSteps}, minmax(0, 1fr))`,
+                                                                        }}
+                                                                    >
+                                                                        {numbers.map((num) => (
+                                                                            <button
+                                                                                key={num}
+                                                                                type="button"
+                                                                                disabled={isScoreLocked}
+                                                                                onMouseEnter={() =>
+                                                                                    !isScoreLocked &&
+                                                                                    setHoveredScore((prev) => ({
+                                                                                        ...prev,
+                                                                                        [param.id]: num,
+                                                                                    }))
+                                                                                }
+                                                                                onClick={() => handleScoreChange(param.id, num)}
+                                                                                className={`h-8 rounded-xl font-mono text-xs transition-all duration-150 flex items-center justify-center cursor-pointer ${getSegmentStyle(
+                                                                                    num
+                                                                                )} ${isScoreLocked ? 'cursor-not-allowed opacity-70' : ''}`}
+                                                                            >
+                                                                                {num}
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
+
+                                                                    {/* Increment Stepper */}
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={
+                                                                            isScoreLocked ||
+                                                                            (numericSelected !== null && numericSelected >= ranges.maxScore)
+                                                                        }
+                                                                        onClick={() => {
+                                                                            const next =
+                                                                                numericSelected === null
+                                                                                    ? ranges.minScore
+                                                                                    : Math.min(ranges.maxScore, numericSelected + 1);
+                                                                            handleScoreChange(param.id, next);
+                                                                        }}
+                                                                        className="w-7 h-8 rounded-xl bg-white hover:bg-slate-50 text-slate-600 border border-slate-200/80 flex items-center justify-center text-xs font-bold transition disabled:opacity-35 cursor-pointer shrink-0 shadow-2xs"
+                                                                        title="Tambah 1 poin"
+                                                                    >
+                                                                        +
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()
+                                                ) : (
+                                                    <>
+                                                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                                                            Pilih Kategori Status Lapangan & Skor Kuantifikasi:
+                                                        </div>
+                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                                            {/* PASS */}
+                                                            <button
+                                                                type="button"
+                                                                disabled={isScoreLocked}
+                                                                onClick={() => handleScoreChange(param.id, ranges.passMax)}
+                                                                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                                                                    isPass
+                                                                        ? 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
+                                                                        : 'bg-white border-slate-200 hover:border-emerald-300 hover:bg-slate-50/80'
+                                                                } ${isScoreLocked ? 'cursor-not-allowed opacity-75' : ''}`}
+                                                            >
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-xs font-black text-emerald-800 flex items-center gap-1.5">
+                                                                        <span className={`w-2.5 h-2.5 rounded-full ${isPass ? 'bg-emerald-500 ring-2 ring-emerald-300' : 'bg-slate-300'}`} />
+                                                                        {ranges.passLabel}
                                                                     </span>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300 font-mono">
+                                                                            {ranges.passMin === ranges.passMax ? `Skor: ${ranges.passMax}` : `Range: ${ranges.passMin}-${ranges.passMax}`}
+                                                                        </span>
+                                                                        {isPass && (
+                                                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-600 text-white">
+                                                                                Terpilih
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                {rubricData?.pass ? (
+                                                                    <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">
+                                                                        {rubricData.pass}
+                                                                    </p>
+                                                                ) : (
+                                                                    <p className="text-[11px] text-slate-400 mt-1 italic">
+                                                                        Memenuhi kriteria verifikasi lapangan dengan baik.
+                                                                    </p>
                                                                 )}
+                                                            </button>
+
+                                                            {/* Need Follow Up */}
+                                                            <button
+                                                                type="button"
+                                                                disabled={isScoreLocked}
+                                                                onClick={() => handleScoreChange(param.id, ranges.followUpMax)}
+                                                                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                                                                    isFollowUp
+                                                                        ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-500/20 shadow-xs'
+                                                                        : 'bg-white border-slate-200 hover:border-amber-300 hover:bg-slate-50/80'
+                                                                } ${isScoreLocked ? 'cursor-not-allowed opacity-75' : ''}`}
+                                                            >
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-xs font-black text-amber-800 flex items-center gap-1.5">
+                                                                        <span className={`w-2.5 h-2.5 rounded-full ${isFollowUp ? 'bg-amber-500 ring-2 ring-amber-300' : 'bg-slate-300'}`} />
+                                                                        {ranges.followUpLabel}
+                                                                    </span>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 font-mono">
+                                                                            {ranges.followUpMin === ranges.followUpMax ? `Skor: ${ranges.followUpMax}` : `Range: ${ranges.followUpMin}-${ranges.followUpMax}`}
+                                                                        </span>
+                                                                        {isFollowUp && (
+                                                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-600 text-white">
+                                                                                Terpilih
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                {rubricData?.followUp ? (
+                                                                    <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">
+                                                                        {rubricData.followUp}
+                                                                    </p>
+                                                                ) : (
+                                                                    <p className="text-[11px] text-slate-400 mt-1 italic">
+                                                                        Terdapat catatan perbaikan atau verifikasi lanjutan.
+                                                                    </p>
+                                                                )}
+                                                            </button>
+
+                                                            {/* Not Pass */}
+                                                            <button
+                                                                type="button"
+                                                                disabled={isScoreLocked}
+                                                                onClick={() => handleScoreChange(param.id, ranges.notPassMax)}
+                                                                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                                                                    isNotPass
+                                                                        ? 'bg-rose-50/90 border-rose-500 ring-2 ring-rose-500/20 shadow-xs'
+                                                                        : 'bg-white border-slate-200 hover:border-rose-300 hover:bg-slate-50/80'
+                                                                } ${isScoreLocked ? 'cursor-not-allowed opacity-75' : ''}`}
+                                                            >
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-xs font-black text-rose-800 flex items-center gap-1.5">
+                                                                        <span className={`w-2.5 h-2.5 rounded-full ${isNotPass ? 'bg-rose-500 ring-2 ring-rose-300' : 'bg-slate-300'}`} />
+                                                                        {ranges.notPassLabel}
+                                                                    </span>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-rose-100 text-rose-900 border border-rose-300 font-mono">
+                                                                            {ranges.notPassMin === ranges.notPassMax ? `Skor: ${ranges.notPassMax}` : `Range: ${ranges.notPassMin}-${ranges.notPassMax}`}
+                                                                        </span>
+                                                                        {isNotPass && (
+                                                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-600 text-white">
+                                                                                Terpilih
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                {(rubricData?.notPass || rubricData?.noPass) ? (
+                                                                    <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">
+                                                                        {rubricData.notPass || rubricData.noPass}
+                                                                    </p>
+                                                                ) : (
+                                                                    <p className="text-[11px] text-slate-400 mt-1 italic">
+                                                                        Tidak memenuhi kriteria yang diverifikasi di lapangan.
+                                                                    </p>
+                                                                )}
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Direct Numeric Score Input */}
+                                                        <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                                            <div className="text-xs">
+                                                                <span className="font-bold text-slate-800 block">Input Angka Nilai Langsung:</span>
+                                                                <span className="text-[11px] text-slate-500">
+                                                                    Isi skor spesifik dalam range <strong className="font-mono text-slate-700">{ranges.minScore} - {ranges.maxScore}</strong> ({ranges.notPassLabel}: {ranges.notPassMin}-{ranges.notPassMax}, {ranges.followUpLabel}: {ranges.followUpMin}-{ranges.followUpMax}, {ranges.passLabel}: {ranges.passMin}-{ranges.passMax})
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 shrink-0">
+                                                                <label className="text-xs font-semibold text-slate-600">Nilai Parameter:</label>
+                                                                <input
+                                                                    type="number"
+                                                                    min={ranges.minScore}
+                                                                    max={ranges.maxScore}
+                                                                    step="any"
+                                                                    disabled={isScoreLocked}
+                                                                    value={rawScore ?? ''}
+                                                                    onChange={(e) => handleScoreChange(param.id, e.target.value)}
+                                                                    className="w-24 text-center font-mono font-bold text-sm rounded-lg border-slate-300 focus:border-emerald-500 focus:ring-emerald-500 bg-white"
+                                                                    placeholder={`${ranges.minScore}-${ranges.maxScore}`}
+                                                                />
+                                                                <span className="text-xs font-semibold text-slate-500">pts</span>
                                                             </div>
                                                         </div>
-                                                        {rubricData?.pass ? (
-                                                            <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">
-                                                                {rubricData.pass}
-                                                            </p>
-                                                        ) : (
-                                                            <p className="text-[11px] text-slate-400 mt-1 italic">
-                                                                Memenuhi kriteria verifikasi lapangan dengan baik.
-                                                            </p>
-                                                        )}
-                                                    </button>
-
-                                                    {/* Need Follow Up */}
-                                                    <button
-                                                        type="button"
-                                                        disabled={isScoreLocked}
-                                                        onClick={() => handleScoreChange(param.id, ranges.followUpMax)}
-                                                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
-                                                            isFollowUp
-                                                                ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-500/20 shadow-xs'
-                                                                : 'bg-white border-slate-200 hover:border-amber-300 hover:bg-slate-50/80'
-                                                        } ${isScoreLocked ? 'cursor-not-allowed opacity-75' : ''}`}
-                                                    >
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-xs font-black text-amber-800 flex items-center gap-1.5">
-                                                                <span className={`w-2.5 h-2.5 rounded-full ${isFollowUp ? 'bg-amber-500 ring-2 ring-amber-300' : 'bg-slate-300'}`} />
-                                                                {ranges.followUpLabel}
-                                                            </span>
-                                                            <div className="flex items-center gap-1.5">
-                                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 font-mono">
-                                                                    {ranges.followUpMin === ranges.followUpMax ? `Skor: ${ranges.followUpMax}` : `Range: ${ranges.followUpMin}-${ranges.followUpMax}`}
-                                                                </span>
-                                                                {isFollowUp && (
-                                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-600 text-white">
-                                                                        Terpilih
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                        {rubricData?.followUp ? (
-                                                            <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">
-                                                                {rubricData.followUp}
-                                                            </p>
-                                                        ) : (
-                                                            <p className="text-[11px] text-slate-400 mt-1 italic">
-                                                                Terdapat catatan perbaikan atau verifikasi lanjutan.
-                                                            </p>
-                                                        )}
-                                                    </button>
-
-                                                    {/* Not Pass */}
-                                                    <button
-                                                        type="button"
-                                                        disabled={isScoreLocked}
-                                                        onClick={() => handleScoreChange(param.id, ranges.notPassMax)}
-                                                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
-                                                            isNotPass
-                                                                ? 'bg-rose-50/90 border-rose-500 ring-2 ring-rose-500/20 shadow-xs'
-                                                                : 'bg-white border-slate-200 hover:border-rose-300 hover:bg-slate-50/80'
-                                                        } ${isScoreLocked ? 'cursor-not-allowed opacity-75' : ''}`}
-                                                    >
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-xs font-black text-rose-800 flex items-center gap-1.5">
-                                                                <span className={`w-2.5 h-2.5 rounded-full ${isNotPass ? 'bg-rose-500 ring-2 ring-rose-300' : 'bg-slate-300'}`} />
-                                                                {ranges.notPassLabel}
-                                                            </span>
-                                                            <div className="flex items-center gap-1.5">
-                                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-rose-100 text-rose-900 border border-rose-300 font-mono">
-                                                                    {ranges.notPassMin === ranges.notPassMax ? `Skor: ${ranges.notPassMax}` : `Range: ${ranges.notPassMin}-${ranges.notPassMax}`}
-                                                                </span>
-                                                                {isNotPass && (
-                                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-600 text-white">
-                                                                        Terpilih
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                        {(rubricData?.notPass || rubricData?.noPass) ? (
-                                                            <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">
-                                                                {rubricData.notPass || rubricData.noPass}
-                                                            </p>
-                                                        ) : (
-                                                            <p className="text-[11px] text-slate-400 mt-1 italic">
-                                                                Tidak memenuhi kriteria yang diverifikasi di lapangan.
-                                                            </p>
-                                                        )}
-                                                    </button>
-                                                </div>
-
-                                                {/* Direct Numeric Score Input */}
-                                                <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                                                    <div className="text-xs">
-                                                        <span className="font-bold text-slate-800 block">Input Angka Nilai Langsung:</span>
-                                                        <span className="text-[11px] text-slate-500">
-                                                            Isi skor spesifik dalam range <strong className="font-mono text-slate-700">{ranges.minScore} - {ranges.maxScore}</strong> ({ranges.notPassLabel}: {ranges.notPassMin}-{ranges.notPassMax}, {ranges.followUpLabel}: {ranges.followUpMin}-{ranges.followUpMax}, {ranges.passLabel}: {ranges.passMin}-{ranges.passMax})
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 shrink-0">
-                                                        <label className="text-xs font-semibold text-slate-600">Nilai Parameter:</label>
-                                                        <input
-                                                            type="number"
-                                                            min={ranges.minScore}
-                                                            max={ranges.maxScore}
-                                                            step="any"
-                                                            disabled={isScoreLocked}
-                                                            value={rawScore ?? ''}
-                                                            onChange={(e) => handleScoreChange(param.id, e.target.value)}
-                                                            className="w-24 text-center font-mono font-bold text-sm rounded-lg border-slate-300 focus:border-emerald-500 focus:ring-emerald-500 bg-white"
-                                                            placeholder={`${ranges.minScore}-${ranges.maxScore}`}
-                                                        />
-                                                        <span className="text-xs font-semibold text-slate-500">pts</span>
-                                                    </div>
-                                                </div>
+                                                    </>
+                                                )}
                                             </div>
 
                                             {/* Optional Note */}
@@ -737,76 +903,115 @@ export default function VerifierProjectShow({
                                     Rekap Hasil Verifikasi
                                 </h3>
 
-                                {/* Qualitative Status Summary Box */}
+                                {/* Qualitative / Direct Score Summary Box */}
                                 <div className="mt-4 p-4 rounded-xl bg-slate-900 text-white">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
-                                            Distribusi & Skor
-                                        </span>
-                                        <span className="text-[11px] font-bold text-emerald-400 font-mono">
-                                            Total: {scoreMetrics.totalScore}/{scoreMetrics.maxTotalScore} pts
-                                        </span>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-2 text-center">
-                                        <div className="p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-500/30">
-                                            <span className="text-2xl font-black text-emerald-400 font-mono block">
-                                                {statusSummary.pass}
-                                            </span>
-                                            <span className="text-[10px] text-emerald-200 font-bold uppercase tracking-wider block">
-                                                Pass
-                                            </span>
-                                            <span className="text-[9px] text-emerald-400/90 font-mono font-bold mt-0.5 block">
-                                                {scoreMetrics.isScale15 ? '11 - 15 Poin' : '5 Poin'}
-                                            </span>
+                                    {isDirectScoreStream ? (
+                                        <div>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
+                                                    Nilai Tertimbang EMI
+                                                </span>
+                                                <span className="text-[11px] font-bold text-blue-400 font-mono">
+                                                    Skala 1 - {scoreMetrics.maxScale}
+                                                </span>
+                                            </div>
+                                            <div className="p-3.5 rounded-xl bg-blue-950/60 border border-blue-500/30 text-center">
+                                                <span className="text-3xl font-black text-blue-400 font-mono block">
+                                                    {scoreMetrics.totalWeighted.toFixed(2)}
+                                                    <span className="text-sm text-blue-300/80 font-semibold">
+                                                        {' '}/ {scoreMetrics.maxScale.toFixed(2)}
+                                                    </span>
+                                                </span>
+                                                <span className="text-[11px] text-blue-200 font-medium mt-1 block">
+                                                    Total Poin: {scoreMetrics.totalScore} / {scoreMetrics.maxTotalScore} pts
+                                                </span>
+                                            </div>
+                                            <div className="mt-3.5 pt-3 border-t border-slate-800 text-center">
+                                                {statusSummary.unrated > 0 ? (
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                                                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                                        <span>{statusSummary.unrated} Parameter Belum Dinilai</span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                                        <span>Seluruh Parameter Selesai Dinilai</span>
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="p-2.5 rounded-lg bg-amber-950/60 border border-amber-500/30">
-                                            <span className="text-2xl font-black text-amber-400 font-mono block">
-                                                {statusSummary.followUp}
-                                            </span>
-                                            <span className="text-[10px] text-amber-200 font-bold uppercase tracking-wider block">
-                                                Follow Up
-                                            </span>
-                                            <span className="text-[9px] text-amber-400/90 font-mono font-bold mt-0.5 block">
-                                                {scoreMetrics.isScale15 ? '6 - 10 Poin' : '3 Poin'}
-                                            </span>
-                                        </div>
-                                        <div className="p-2.5 rounded-lg bg-rose-950/60 border border-rose-500/30">
-                                            <span className="text-2xl font-black text-rose-400 font-mono block">
-                                                {statusSummary.notPass}
-                                            </span>
-                                            <span className="text-[10px] text-rose-200 font-bold uppercase tracking-wider block">
-                                                Not Pass
-                                            </span>
-                                            <span className="text-[9px] text-rose-400/90 font-mono font-bold mt-0.5 block">
-                                                {scoreMetrics.isScale15 ? '1 - 5 Poin' : '1 Poin'}
-                                            </span>
-                                        </div>
-                                    </div>
+                                    ) : (
+                                        <>
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
+                                                    Distribusi & Skor
+                                                </span>
+                                                <span className="text-[11px] font-bold text-emerald-400 font-mono">
+                                                    Total: {scoreMetrics.totalScore}/{scoreMetrics.maxTotalScore} pts
+                                                </span>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-2 text-center">
+                                                <div className="p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-500/30">
+                                                    <span className="text-2xl font-black text-emerald-400 font-mono block">
+                                                        {statusSummary.pass}
+                                                    </span>
+                                                    <span className="text-[10px] text-emerald-200 font-bold uppercase tracking-wider block">
+                                                        Pass
+                                                    </span>
+                                                    <span className="text-[9px] text-emerald-400/90 font-mono font-bold mt-0.5 block">
+                                                        {scoreMetrics.isScale15 ? '11 - 15 Poin' : '5 Poin'}
+                                                    </span>
+                                                </div>
+                                                <div className="p-2.5 rounded-lg bg-amber-950/60 border border-amber-500/30">
+                                                    <span className="text-2xl font-black text-amber-400 font-mono block">
+                                                        {statusSummary.followUp}
+                                                    </span>
+                                                    <span className="text-[10px] text-amber-200 font-bold uppercase tracking-wider block">
+                                                        Follow Up
+                                                    </span>
+                                                    <span className="text-[9px] text-amber-400/90 font-mono font-bold mt-0.5 block">
+                                                        {scoreMetrics.isScale15 ? '6 - 10 Poin' : '3 Poin'}
+                                                    </span>
+                                                </div>
+                                                <div className="p-2.5 rounded-lg bg-rose-950/60 border border-rose-500/30">
+                                                    <span className="text-2xl font-black text-rose-400 font-mono block">
+                                                        {statusSummary.notPass}
+                                                    </span>
+                                                    <span className="text-[10px] text-rose-200 font-bold uppercase tracking-wider block">
+                                                        Not Pass
+                                                    </span>
+                                                    <span className="text-[9px] text-rose-400/90 font-mono font-bold mt-0.5 block">
+                                                        {scoreMetrics.isScale15 ? '1 - 5 Poin' : '1 Poin'}
+                                                    </span>
+                                                </div>
+                                            </div>
 
-                                    {/* Overall Conclusion Badge */}
-                                    <div className="mt-3.5 pt-3 border-t border-slate-800 text-center">
-                                        {statusSummary.unrated > 0 ? (
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
-                                                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                                                <span>{statusSummary.unrated} Kriteria Belum Dinilai</span>
-                                            </span>
-                                        ) : statusSummary.notPass > 0 ? (
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                                                <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-                                                <span>Rekomendasi: Not Pass</span>
-                                            </span>
-                                        ) : statusSummary.followUp > 0 ? (
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                                                <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-                                                <span>Rekomendasi: Need Follow Up</span>
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                                                <span>Rekomendasi: Lulus Verifikasi</span>
-                                            </span>
-                                        )}
-                                    </div>
+                                            {/* Overall Conclusion Badge */}
+                                            <div className="mt-3.5 pt-3 border-t border-slate-800 text-center">
+                                                {statusSummary.unrated > 0 ? (
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                                                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                                        <span>{statusSummary.unrated} Kriteria Belum Dinilai</span>
+                                                    </span>
+                                                ) : statusSummary.notPass > 0 ? (
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                                                        <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                                                        <span>Rekomendasi: Not Pass</span>
+                                                    </span>
+                                                ) : statusSummary.followUp > 0 ? (
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                                        <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                                                        <span>Rekomendasi: Need Follow Up</span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                                        <span>Rekomendasi: Lulus Verifikasi</span>
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
 
                                 <div className="mt-4 space-y-2 text-xs">
@@ -893,7 +1098,11 @@ export default function VerifierProjectShow({
                                 </h4>
                                 <ul className="text-[11px] text-slate-500 space-y-1.5 mt-2 list-disc list-inside">
                                     <li>Verifikasi lapangan mencakup validasi data, observasi proses, dan wawancara tim.</li>
-                                    <li>Tentukan status & skor kuantifikasi: <b>Pass (5)</b>, <b>Need Follow Up (3)</b>, atau <b>Not Pass (1)</b> untuk setiap kriteria.</li>
+                                    {isDirectScoreStream ? (
+                                        <li>Berikan skor langsung antara <b>1 sampai 15</b> untuk setiap parameter penilaian EMI.</li>
+                                    ) : (
+                                        <li>Tentukan status & skor kuantifikasi: <b>Pass (5)</b>, <b>Need Follow Up (3)</b>, atau <b>Not Pass (1)</b> untuk setiap kriteria.</li>
+                                    )}
                                     <li>Catatan dapat ditambahkan untuk setiap kriteria jika diperlukan follow-up.</li>
                                     <li>Saat tombol <b>Submit Final</b> ditekan, form terkunci dan status project berpindah menjadi <b>Terverifikasi</b>.</li>
                                 </ul>
@@ -1381,64 +1590,78 @@ export default function VerifierProjectShow({
                                 Ringkasan Hasil Evaluasi Verifikasi
                             </span>
                             <span className="text-[11px] font-bold text-emerald-400 font-mono">
-                                Skor: {scoreMetrics.totalScore}/{scoreMetrics.maxTotalScore} pts (Tertimbang: {scoreMetrics.totalWeighted.toFixed(2)}/5.00)
+                                Skor: {scoreMetrics.totalScore}/{scoreMetrics.maxTotalScore} pts (Tertimbang: {scoreMetrics.totalWeighted.toFixed(2)}/{scoreMetrics.maxScale.toFixed(2)})
                             </span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-center">
-                            <div className="p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-500/30">
-                                <span className="text-2xl font-black text-emerald-400 font-mono block">
-                                    {statusSummary.pass}
+                        {isDirectScoreStream ? (
+                            <div className="p-3 rounded-xl bg-blue-950/60 border border-blue-500/30 text-center">
+                                <span className="text-2xl font-black text-blue-400 font-mono block">
+                                    {scoreMetrics.totalWeighted.toFixed(2)} / {scoreMetrics.maxScale.toFixed(2)}
                                 </span>
-                                <span className="text-[10px] text-emerald-200 font-bold uppercase tracking-wider block">
-                                    Pass (5 Pts)
-                                </span>
-                            </div>
-                            <div className="p-2.5 rounded-lg bg-amber-950/60 border border-amber-500/30">
-                                <span className="text-2xl font-black text-amber-400 font-mono block">
-                                    {statusSummary.followUp}
-                                </span>
-                                <span className="text-[10px] text-amber-200 font-bold uppercase tracking-wider block">
-                                    Follow Up (3 Pts)
+                                <span className="text-[11px] text-blue-200 mt-0.5 block">
+                                    Rata-rata Skor Parameter: {scoreMetrics.avgScore.toFixed(2)} / {scoreMetrics.maxScale}
                                 </span>
                             </div>
-                            <div className="p-2.5 rounded-lg bg-rose-950/60 border border-rose-500/30">
-                                <span className="text-2xl font-black text-rose-400 font-mono block">
-                                    {statusSummary.notPass}
-                                </span>
-                                <span className="text-[10px] text-rose-200 font-bold uppercase tracking-wider block">
-                                    Not Pass (1 Pt)
-                                </span>
-                            </div>
-                        </div>
+                        ) : (
+                            <>
+                                <div className="grid grid-cols-3 gap-2 text-center">
+                                    <div className="p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-500/30">
+                                        <span className="text-2xl font-black text-emerald-400 font-mono block">
+                                            {statusSummary.pass}
+                                        </span>
+                                        <span className="text-[10px] text-emerald-200 font-bold uppercase tracking-wider block">
+                                            Pass
+                                        </span>
+                                    </div>
+                                    <div className="p-2.5 rounded-lg bg-amber-950/60 border border-amber-500/30">
+                                        <span className="text-2xl font-black text-amber-400 font-mono block">
+                                            {statusSummary.followUp}
+                                        </span>
+                                        <span className="text-[10px] text-amber-200 font-bold uppercase tracking-wider block">
+                                            Follow Up
+                                        </span>
+                                    </div>
+                                    <div className="p-2.5 rounded-lg bg-rose-950/60 border border-rose-500/30">
+                                        <span className="text-2xl font-black text-rose-400 font-mono block">
+                                            {statusSummary.notPass}
+                                        </span>
+                                        <span className="text-[10px] text-rose-200 font-bold uppercase tracking-wider block">
+                                            Not Pass
+                                        </span>
+                                    </div>
+                                </div>
 
-                        {/* Overall Recommendation */}
-                        <div className="mt-3 pt-2.5 border-t border-slate-800 text-center">
-                            {statusSummary.notPass > 0 ? (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                                    <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-                                    <span>Rekomendasi Akhir: Not Pass</span>
-                                </span>
-                            ) : statusSummary.followUp > 0 ? (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                                    <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-                                    <span>Rekomendasi Akhir: Need Follow Up</span>
-                                </span>
-                            ) : (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                                    <span>Rekomendasi Akhir: Lolos Verifikasi</span>
-                                </span>
-                            )}
-                        </div>
+                                {/* Overall Recommendation */}
+                                <div className="mt-3 pt-2.5 border-t border-slate-800 text-center">
+                                    {statusSummary.notPass > 0 ? (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                                            <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                                            <span>Rekomendasi Akhir: Not Pass</span>
+                                        </span>
+                                    ) : statusSummary.followUp > 0 ? (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                            <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                                            <span>Rekomendasi Akhir: Need Follow Up</span>
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                            <span>Rekomendasi Akhir: Lolos Verifikasi</span>
+                                        </span>
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     {/* Breakdown table */}
                     <div>
-                        <span className="font-bold text-slate-700 block mb-1.5">Rincian Status per Kriteria:</span>
+                        <span className="font-bold text-slate-700 block mb-1.5">Rincian Nilai per Kriteria:</span>
                         <div className="rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100 max-h-56 overflow-y-auto">
                             {scoringParameters.map((param, idx) => {
                                 const scoreVal = scores[param.id]?.score;
-                                const evalResult = getEvaluationStatus(scoreVal);
+                                const evalResult = getEvaluationStatus(scoreVal, param);
+                                const ranges = getParamRanges(param);
                                 const note = scores[param.id]?.note;
 
                                 return (
@@ -1455,20 +1678,28 @@ export default function VerifierProjectShow({
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            {evalResult?.key === 'pass' ? (
+                                            {isDirectScoreStream ? (
+                                                scoreVal !== null && scoreVal !== undefined && scoreVal !== '' ? (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300">
+                                                        Skor: {scoreVal} / {ranges.maxScore}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[11px] font-bold text-rose-600">Belum Dinilai</span>
+                                                )
+                                            ) : evalResult?.key === 'pass' ? (
                                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                                                     <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                                    Pass (Skor: 5)
+                                                    {ranges.passLabel} (Skor: {scoreVal})
                                                 </span>
                                             ) : evalResult?.key === 'followUp' ? (
                                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
                                                     <AlertCircle className="w-3 h-3 text-amber-600" />
-                                                    Need Follow Up (Skor: 3)
+                                                    {ranges.followUpLabel} (Skor: {scoreVal})
                                                 </span>
                                             ) : evalResult?.key === 'notPass' ? (
                                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">
                                                     <AlertCircle className="w-3 h-3 text-rose-600" />
-                                                    Not Pass (Skor: 1)
+                                                    {ranges.notPassLabel} (Skor: {scoreVal})
                                                 </span>
                                             ) : (
                                                 <span className="text-[11px] font-bold text-rose-600">Belum Ditentukan</span>

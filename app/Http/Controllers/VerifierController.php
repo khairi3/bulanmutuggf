@@ -95,13 +95,43 @@ class VerifierController extends Controller
         // Map my score sheet status per project
         $projects->getCollection()->transform(function (Project $p) {
             $mySheet = $p->scoreSheets->first();
+            $streamCode = $p->stream?->code;
+
+            $levelOption = $p->categories->first(function ($c) {
+                $dimCode = strtoupper((string) $c->dimension?->code);
+                $dimName = strtolower((string) $c->dimension?->name);
+
+                return $dimCode === 'LEVEL'
+                    || str_contains($dimName, 'level')
+                    || in_array(strtolower($c->name), ['beginner', 'middle', 'advance', 'advanced'], true);
+            });
+
+            if ($streamCode === Stream::CODE_CIC) {
+                $levelName = $levelOption?->name ?? 'Lainnya';
+                $groupKey = 'CIC_'.strtoupper($levelName);
+                $groupLabel = "CIC — {$levelName}";
+            } elseif ($streamCode === Stream::CODE_ENERGY) {
+                $groupKey = 'ENERGY';
+                $groupLabel = 'EMI (Energy Management Implementation)';
+            } elseif ($streamCode === Stream::CODE_K3) {
+                $groupKey = 'K3';
+                $groupLabel = 'Bulan K3 (Keselamatan & Kesehatan Kerja)';
+            } else {
+                $groupKey = $streamCode ?: 'OTHER';
+                $groupLabel = $p->stream?->name ?? 'Stream Lainnya';
+            }
 
             return [
                 'id' => $p->id,
                 'registration_code' => $p->registration_code,
                 'title' => $p->title,
                 'status' => $p->status,
+                'stream_id' => $p->stream_id,
+                'stream_code' => $streamCode,
                 'stream_name' => $p->stream?->name,
+                'level_name' => $levelOption?->name,
+                'group_key' => $groupKey,
+                'group_label' => $groupLabel,
                 'leader_name' => $p->leader?->full_name,
                 'unit' => $p->leader?->unit,
                 'categories' => $p->categories->pluck('name')->all(),
@@ -111,9 +141,38 @@ class VerifierController extends Controller
             ];
         });
 
-        // Filter options for dropdowns
+        // Filter options for dropdowns & Category tabs
         $assignedStreamIds = $this->access->assignmentsFor($user, 'verification')->pluck('stream_id')->unique();
-        $streams = Stream::whereIn('id', $assignedStreamIds)->get(['id', 'name', 'code']);
+        $streams = Stream::with(['categoryDimensions.options'])->whereIn('id', $assignedStreamIds)->get(['id', 'name', 'code']);
+
+        // Build category summary counts across baseQuery
+        $allProjectsForCounts = (clone $baseQuery)->with(['stream:id,code,name', 'categories.dimension'])->get();
+        $groupCounts = [
+            'ALL' => $allProjectsForCounts->count(),
+            'CIC_BEGINNER' => 0,
+            'CIC_MIDDLE' => 0,
+            'CIC_ADVANCE' => 0,
+            'ENERGY' => 0,
+            'K3' => 0,
+        ];
+
+        foreach ($allProjectsForCounts as $proj) {
+            $sCode = $proj->stream?->code;
+            if ($sCode === Stream::CODE_CIC) {
+                $lvl = $proj->categories->first(fn ($c) => in_array(strtolower($c->name), ['beginner', 'middle', 'advance', 'advanced'], true));
+                $lvlUpper = strtoupper($lvl?->name ?? '');
+                if ($lvlUpper === 'ADVANCED') {
+                    $lvlUpper = 'ADVANCE';
+                }
+                if (isset($groupCounts["CIC_{$lvlUpper}"])) {
+                    $groupCounts["CIC_{$lvlUpper}"]++;
+                }
+            } elseif ($sCode === Stream::CODE_ENERGY) {
+                $groupCounts['ENERGY']++;
+            } elseif ($sCode === Stream::CODE_K3) {
+                $groupCounts['K3']++;
+            }
+        }
 
         return Inertia::render('Verifier/Dashboard', [
             'stats' => [
@@ -121,6 +180,7 @@ class VerifierController extends Controller
                 'unverified' => $unverified,
                 'verified' => $verified,
             ],
+            'groupCounts' => $groupCounts,
             'projects' => $projects,
             'streams' => $streams,
             'filters' => $request->only(['stream_id', 'status', 'search', 'category_option_id', 'sort', 'direction']),

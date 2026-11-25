@@ -185,7 +185,7 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
 
     const addValidFiles = (files) => {
         setFileError(null);
-        const maxSizeBytes = 20 * 1024 * 1024; // 20 MB per file
+        const maxSizeBytes = 50 * 1024 * 1024; // 50 MB per file
         const allowedExtensions = ['ppt', 'pptx', 'pdf', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'mp4'];
 
         const valid = [];
@@ -196,7 +196,7 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
                 continue;
             }
             if (f.size > maxSizeBytes) {
-                setFileError(`Ukuran file "${f.name}" (${formatBytes(f.size)}) melebihi batas maksimal 20 MB.`);
+                setFileError(`Ukuran file "${f.name}" (${formatBytes(f.size)}) melebihi batas maksimal 50 MB.`);
                 continue;
             }
             valid.push(f);
@@ -947,7 +947,7 @@ export default function RegisterWizard({ activeEvent, streams, currentEmployee, 
                                     Unggah Berkas Presentasi / Data Lampiran
                                 </h4>
                                 <p className="text-xs text-slate-500 mb-3 max-w-md mx-auto">
-                                    Mendukung PPT, PPTX, PDF, XLS, XLSX, JPG, PNG, MP4. Maksimal 20 MB per file.
+                                    Mendukung PPT, PPTX, PDF, XLS, XLSX, JPG, PNG, MP4. Maksimal 50 MB per file.
                                 </p>
                                 <button
                                     type="button"
